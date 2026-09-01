@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { getStageConfig } from '../../src/scene/stageConfig.js';
 import { createSiteModel } from '../../src/scene/createSiteModel.js';
 import { createAssetTexture } from '../../src/scene/createTexture.js';
+import {
+  createEngineeringDetails,
+  createTerrainRibbon,
+} from '../../src/scene/createEngineeringDetails.js';
+import { getTerrainHeight } from '../../src/scene/terrainProfiles.js';
 
 describe('stage configuration', () => {
   it('progresses from an exposed pit to restored vegetation', () => {
@@ -137,5 +142,39 @@ describe('site model', () => {
       expect(detail.parent?.name).toBe(layerName);
     });
     model.dispose();
+  });
+});
+
+describe('terrain-following engineering details', () => {
+  it('places every ribbon vertex immediately above its stage terrain', () => {
+    const ribbon = createTerrainRibbon([
+      { x: -4, z: -2 },
+      { x: 0, z: 0 },
+      { x: 4, z: 2 },
+    ], 0.5, 'stack');
+    const positions = ribbon.attributes.position;
+
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index);
+      const y = positions.getY(index);
+      const z = positions.getZ(index);
+      const clearance = y - getTerrainHeight('stack', x, z);
+      expect(clearance).toBeGreaterThanOrEqual(0.025);
+      expect(clearance).toBeLessThan(0.06);
+    }
+    ribbon.dispose();
+  });
+
+  it('organizes visible details by restoration stage', () => {
+    const details = createEngineeringDetails();
+    expect(details.root.getObjectByName('site-infrastructure')).toBeTruthy();
+    expect(details.root.getObjectByName('liner-seams').parent.name).toBe('liner-details');
+    expect(details.root.getObjectByName('haul-road').parent.name).toBe('stack-details');
+    expect(details.root.getObjectByName('cover-tracks').parent.name).toBe('cover-details');
+
+    details.applyStage('stack');
+    expect(details.root.getObjectByName('liner-details').visible).toBe(false);
+    expect(details.root.getObjectByName('stack-details').visible).toBe(true);
+    details.dispose();
   });
 });
