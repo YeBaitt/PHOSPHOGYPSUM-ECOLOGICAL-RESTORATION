@@ -7,6 +7,11 @@ import {
   createTerrainRibbon,
 } from '../../src/scene/createEngineeringDetails.js';
 import { getTerrainHeight } from '../../src/scene/terrainProfiles.js';
+import { createVegetation } from '../../src/scene/createVegetation.js';
+
+function rendererStub() {
+  return { capabilities: { getMaxAnisotropy: () => 4 } };
+}
 
 describe('stage configuration', () => {
   it('progresses from an exposed pit to restored vegetation', () => {
@@ -176,5 +181,24 @@ describe('terrain-following engineering details', () => {
     expect(details.root.getObjectByName('liner-details').visible).toBe(false);
     expect(details.root.getObjectByName('stack-details').visible).toBe(true);
     details.dispose();
+  });
+});
+
+describe('natural vegetation', () => {
+  it('uses instanced, irregular restoration vegetation', () => {
+    const vegetation = createVegetation(rendererStub(), { loadImages: false });
+    const trees = vegetation.root.getObjectByName('restoration-trees');
+    const forest = vegetation.root.getObjectByName('distant-forest');
+
+    expect(trees.isInstancedMesh).toBe(true);
+    expect(forest.isInstancedMesh).toBe(true);
+    expect(trees.count).toBeGreaterThan(40);
+    expect(forest.count).toBeGreaterThan(300);
+
+    vegetation.applyStage('pit');
+    expect(trees.visible).toBe(false);
+    vegetation.applyStage('restoration');
+    expect(trees.visible).toBe(true);
+    vegetation.dispose();
   });
 });
