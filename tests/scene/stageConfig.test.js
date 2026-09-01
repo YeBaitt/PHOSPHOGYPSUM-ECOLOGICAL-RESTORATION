@@ -65,7 +65,7 @@ describe('site model', () => {
       .toThrow('Unknown asset texture: other');
   });
 
-  it('applies stage visibility to the real model layers', () => {
+  it('composes one terrain without independent ground or pit meshes', () => {
     const context = {
       fillRect: vi.fn(),
       beginPath: vi.fn(),
@@ -78,17 +78,18 @@ describe('site model', () => {
     const renderer = {
       capabilities: { getMaxAnisotropy: () => 4 },
     };
-    const model = createSiteModel(renderer);
+    const model = createSiteModel(renderer, { loadImages: false });
 
-    model.applyStage('restoration');
-
-    expect(model.root.getObjectByName('liner-layer').visible).toBe(true);
-    expect(model.root.getObjectByName('grass-layer').visible).toBe(true);
-    expect(model.root.getObjectByName('shrubs-layer').visible).toBe(true);
+    expect(model.root.getObjectByName('unified-terrain')).toBeTruthy();
+    expect(model.root.getObjectByName('site-ground')).toBeUndefined();
+    expect(model.root.getObjectByName('pit-wall')).toBeUndefined();
+    expect(
+      model.root.children.filter(child => child.name === 'unified-terrain'),
+    ).toHaveLength(1);
     model.dispose();
   });
 
-  it('uses an asymmetric terrain wall instead of a regular cylinder', () => {
+  it('routes stage and time updates to the composed scene systems', () => {
     const context = {
       fillRect: vi.fn(),
       beginPath: vi.fn(),
@@ -98,24 +99,13 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel({
-      capabilities: { getMaxAnisotropy: () => 4 },
-    });
-    const pitWall = model.root.getObjectByName('pit-wall');
-    const ground = model.root.getObjectByName('site-ground');
-    const positions = pitWall.geometry.attributes.position;
-    const rimRadii = [];
+    const model = createSiteModel(rendererStub(), { loadImages: false });
+    model.applyStage('restoration');
+    model.update(0.6);
 
-    for (let index = 0; index < positions.count; index += 1) {
-      if (positions.getY(index) > -0.1) {
-        rimRadii.push(Math.hypot(positions.getX(index), positions.getZ(index)));
-      }
-    }
-
-    expect(pitWall.geometry.type).toBe('BufferGeometry');
-    expect(pitWall.geometry.parameters?.radiusTop).toBeUndefined();
-    expect(Math.max(...rimRadii) - Math.min(...rimRadii)).toBeGreaterThan(0.5);
-    expect(ground.geometry.type).toBe('ShapeGeometry');
+    expect(model.root.getObjectByName('restoration-trees').visible).toBe(true);
+    expect(model.root.getObjectByName('unified-terrain').userData.currentStage)
+      .toBe('restoration');
     model.dispose();
   });
 
@@ -129,16 +119,14 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel({
-      capabilities: { getMaxAnisotropy: () => 4 },
-    });
+    const model = createSiteModel(rendererStub(), { loadImages: false });
 
     const expectedDetails = {
-      'liner-seams': 'liner-layer',
-      'drainage-pipe': 'liner-layer',
-      'haul-road': 'gypsum-layer',
-      'cover-tracks': 'cover-layer',
-      'restoration-trees': 'shrubs-layer',
+      'liner-seams': 'liner-details',
+      'drainage-pipe': 'liner-details',
+      'haul-road': 'stack-details',
+      'cover-tracks': 'cover-details',
+      'restoration-trees': 'restoration-vegetation',
     };
 
     Object.entries(expectedDetails).forEach(([detailName, layerName]) => {

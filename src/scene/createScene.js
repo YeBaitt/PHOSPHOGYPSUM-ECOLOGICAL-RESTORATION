@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createDynamicSky } from './createDynamicSky.js';
 import { createSiteModel } from './createSiteModel.js';
 
 export function createScene(canvas) {
@@ -10,7 +11,7 @@ export function createScene(canvas) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
-    alpha: true,
+    alpha: false,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.shadowMap.enabled = true;
@@ -20,10 +21,10 @@ export function createScene(canvas) {
   renderer.toneMappingExposure = 1.08;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2('#8fa9a8', 0.017);
+  scene.fog = new THREE.Fog('#81969b', 26, 68);
 
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 120);
-  camera.position.set(16, 12, 19);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 160);
+  camera.position.set(15.5, 13.5, 20.5);
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -35,10 +36,10 @@ export function createScene(canvas) {
   controls.maxPolarAngle = 1.42;
   controls.target.set(0, 1.4, 0);
 
-  const ambientLight = new THREE.HemisphereLight('#e1f2ff', '#58442e', 1.7);
+  const ambientLight = new THREE.HemisphereLight('#e1f2ff', '#58442e', 1.15);
   scene.add(ambientLight);
 
-  const sun = new THREE.DirectionalLight('#fff0d2', 3.35);
+  const sun = new THREE.DirectionalLight('#fff0d2', 2.1);
   sun.position.set(-11, 18, 10);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -49,7 +50,7 @@ export function createScene(canvas) {
   sun.shadow.bias = -0.00025;
   scene.add(sun);
 
-  const fillLight = new THREE.DirectionalLight('#70b8dd', 0.65);
+  const fillLight = new THREE.DirectionalLight('#70b8dd', 0.3);
   fillLight.position.set(12, 7, -10);
   scene.add(fillLight);
 
@@ -58,9 +59,16 @@ export function createScene(canvas) {
   model.root.scale.setScalar(0.94);
   scene.add(model.root);
 
+  const sky = createDynamicSky();
+  scene.add(sky.root);
+
   let frameId = 0;
+  const clock = new THREE.Clock();
 
   function render() {
+    const deltaSeconds = Math.min(clock.getDelta(), 0.05);
+    model.update(deltaSeconds);
+    sky.update(deltaSeconds);
     controls.update();
     renderer.render(scene, camera);
     frameId = requestAnimationFrame(render);
@@ -85,6 +93,7 @@ export function createScene(canvas) {
     cancelAnimationFrame(frameId);
     controls.dispose();
     model.dispose();
+    sky.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
   }
