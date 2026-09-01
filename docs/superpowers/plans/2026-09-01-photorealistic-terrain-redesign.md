@@ -151,4 +151,3 @@ Confirm drag rotates, wheel zooms within limits, right-drag does not pan, repeat
 - [ ] **Step 5: Run final verification and commit**
 
 Run `npm test` and `npm run build`; inspect `git diff --check` and `git status --short`. Commit verified adjustments with `test: verify photorealistic terrain stages`.
-
