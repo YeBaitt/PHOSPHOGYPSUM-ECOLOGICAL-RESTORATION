@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { getStageConfig } from '../../src/scene/stageConfig.js';
 import { createSiteModel } from '../../src/scene/createSiteModel.js';
@@ -170,6 +171,22 @@ describe('terrain-following engineering details', () => {
     expect(details.root.getObjectByName('stack-details').visible).toBe(true);
     details.dispose();
   });
+
+  it('keeps the haul road above sharp terrace transitions', () => {
+    const details = createEngineeringDetails();
+    const road = details.root.getObjectByName('haul-road');
+    const positions = road.geometry.attributes.position;
+
+    for (let index = 0; index < positions.count; index += 1) {
+      const clearance = positions.getY(index) - getTerrainHeight(
+        'stack',
+        positions.getX(index),
+        positions.getZ(index),
+      );
+      expect(clearance).toBeGreaterThanOrEqual(0.12);
+    }
+    details.dispose();
+  });
 });
 
 describe('natural vegetation', () => {
@@ -187,6 +204,58 @@ describe('natural vegetation', () => {
     expect(trees.visible).toBe(false);
     vegetation.applyStage('restoration');
     expect(trees.visible).toBe(true);
+    vegetation.dispose();
+  });
+
+  it('keeps distant forest trees within the landscape scale', () => {
+    const vegetation = createVegetation(rendererStub(), { loadImages: false });
+    const forest = vegetation.root.getObjectByName('distant-forest');
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const rotation = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    let maximumScaleY = 0;
+
+    for (let index = 0; index < forest.count; index += 1) {
+      forest.getMatrixAt(index, matrix);
+      matrix.decompose(position, rotation, scale);
+      maximumScaleY = Math.max(maximumScaleY, scale.y);
+    }
+
+    expect(maximumScaleY).toBeLessThanOrEqual(1.2);
+    vegetation.dispose();
+  });
+
+  it('color-corrects pale generated tree pixels toward natural green', () => {
+    const vegetation = createVegetation(rendererStub(), { loadImages: false });
+    const materialColor = vegetation.root.getObjectByName('restoration-trees').material.color;
+
+    expect(materialColor.g).toBeGreaterThan(materialColor.r);
+    expect(materialColor.g).toBeGreaterThan(materialColor.b);
+    vegetation.dispose();
+  });
+
+  it('tapers restoration grass instead of rendering rectangular sticks', () => {
+    const vegetation = createVegetation(rendererStub(), { loadImages: false });
+    const grass = vegetation.root.getObjectByName('restoration-grass');
+    const positions = grass.geometry.attributes.position;
+    let maximumY = -Infinity;
+
+    for (let index = 0; index < positions.count; index += 1) {
+      maximumY = Math.max(maximumY, positions.getY(index));
+    }
+
+    let maximumTopRadius = 0;
+    for (let index = 0; index < positions.count; index += 1) {
+      if (Math.abs(positions.getY(index) - maximumY) < 0.001) {
+        maximumTopRadius = Math.max(
+          maximumTopRadius,
+          Math.hypot(positions.getX(index), positions.getZ(index)),
+        );
+      }
+    }
+
+    expect(maximumTopRadius).toBeLessThan(0.01);
     vegetation.dispose();
   });
 });

@@ -20,7 +20,7 @@ function densifyPath(points, maximumSpacing = 0.3) {
   return dense;
 }
 
-export function createTerrainRibbon(points, width, stageId) {
+export function createTerrainRibbon(points, width, stageId, clearance = 0.035) {
   const densePoints = densifyPath(points);
   const positions = [];
   const indices = [];
@@ -37,7 +37,7 @@ export function createTerrainRibbon(points, width, stageId) {
     [-0.5, 0.5].forEach((side) => {
       const x = point.x + normalX * width * side;
       const z = point.z + normalZ * width * side;
-      positions.push(x, getTerrainHeight(stageId, x, z) + 0.035, z);
+      positions.push(x, getTerrainHeight(stageId, x, z) + clearance, z);
     });
 
     if (index < densePoints.length - 1) {
@@ -53,8 +53,11 @@ export function createTerrainRibbon(points, width, stageId) {
   return geometry;
 }
 
-function ribbonMesh(name, points, width, stageId, material) {
-  const mesh = new THREE.Mesh(createTerrainRibbon(points, width, stageId), material);
+function ribbonMesh(name, points, width, stageId, material, clearance) {
+  const mesh = new THREE.Mesh(
+    createTerrainRibbon(points, width, stageId, clearance),
+    material,
+  );
   mesh.name = name;
   mesh.receiveShadow = true;
   return mesh;
@@ -116,7 +119,7 @@ export function createEngineeringDetails(customMaterials = {}) {
   stackDetails.add(ribbonMesh('haul-road', [
     { x: -9.5, z: 4.8 }, { x: -6.2, z: 2.8 }, { x: -2.8, z: 1.5 },
     { x: 0.8, z: 0.4 }, { x: 3.4, z: -0.8 },
-  ], 1.05, 'stack', materials.road));
+  ], 1.05, 'stack', materials.road, 0.145));
 
   const coverDetails = new THREE.Group();
   coverDetails.name = 'cover-details';

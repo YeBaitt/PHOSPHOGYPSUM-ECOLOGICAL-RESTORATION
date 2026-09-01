@@ -6,11 +6,12 @@ import {
   getTerrainHeight,
 } from './terrainProfiles.js';
 
-const WIDTH = 56;
-const DEPTH = 42;
+const WIDTH = 108;
+const DEPTH = 90;
 const TRANSITION_SECONDS = 0.6;
 
 const vertexShader = `
+  #include <fog_pars_vertex>
   attribute float surfaceMask;
   varying vec3 vModelPosition;
   varying vec3 vViewNormal;
@@ -20,11 +21,14 @@ const vertexShader = `
     vModelPosition = position;
     vViewNormal = normalize(normalMatrix * normal);
     vSurfaceMask = surfaceMask;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
   }
 `;
 
 const fragmentShader = `
+  #include <fog_pars_fragment>
   uniform sampler2D uOuterMap;
   uniform sampler2D uInnerMap;
   uniform sampler2D uPreviousInnerMap;
@@ -54,6 +58,7 @@ const fragmentShader = `
     gl_FragColor = vec4(color * (0.58 + diffuse * 0.62), 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
+    #include <fog_fragment>
   }
 `;
 
@@ -104,8 +109,8 @@ function buildGrid(segmentsX, segmentsZ) {
 }
 
 export function createUnifiedTerrain(renderer, options = {}) {
-  const segmentsX = options.segmentsX ?? 160;
-  const segmentsZ = options.segmentsZ ?? 120;
+  const segmentsX = options.segmentsX ?? 216;
+  const segmentsZ = options.segmentsZ ?? 180;
   const { positions, surfaceMasks, indices } = buildGrid(segmentsX, segmentsZ);
   const vertexCount = (segmentsX + 1) * (segmentsZ + 1);
   const heights = Object.fromEntries(TERRAIN_STAGE_IDS.map(stageId => [
@@ -131,15 +136,19 @@ export function createUnifiedTerrain(renderer, options = {}) {
 
   const textures = createTerrainTextureSet(renderer, options);
   const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uOuterMap: { value: textures.rock },
-      uInnerMap: { value: textures.rock },
-      uPreviousInnerMap: { value: textures.rock },
-      uMaterialMix: { value: 1 },
-      uSunDirection: {
-        value: new THREE.Vector3(-0.45, 0.8, 0.35).normalize(),
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {
+        uOuterMap: { value: textures.rock },
+        uInnerMap: { value: textures.rock },
+        uPreviousInnerMap: { value: textures.rock },
+        uMaterialMix: { value: 1 },
+        uSunDirection: {
+          value: new THREE.Vector3(-0.45, 0.8, 0.35).normalize(),
+        },
       },
-    },
+    ]),
     vertexShader,
     fragmentShader,
   });

@@ -43,13 +43,13 @@ const fragmentShader = `
   }
 
   void main() {
-    float horizon = smoothstep(-0.12, 0.72, vDirection.y);
+    float horizon = smoothstep(0.18, 0.72, vDirection.y);
     vec3 sky = mix(uHorizonColor, uZenithColor, horizon);
     vec2 cloudUv = vDirection.xz / max(0.18, vDirection.y + 0.42);
     float cloudField = fbm(cloudUv * 1.35 + vec2(uTime * uCloudSpeed, 0.0));
-    float clouds = smoothstep(0.5, 0.72, cloudField);
-    float cloudAltitude = smoothstep(0.05, 0.5, vDirection.y);
-    sky = mix(sky, vec3(0.84, 0.87, 0.89), clouds * cloudAltitude * 0.82);
+    float clouds = smoothstep(0.44, 0.66, cloudField);
+    float cloudAltitude = smoothstep(0.12, 0.42, vDirection.y);
+    sky = mix(sky, vec3(0.9, 0.92, 0.93), clouds * cloudAltitude * 0.78);
     gl_FragColor = vec4(sky, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -64,7 +64,7 @@ export function createDynamicSky() {
     fog: false,
     uniforms: {
       uTime: { value: 0 },
-      uCloudSpeed: { value: 0.006 },
+      uCloudSpeed: { value: 0.012 },
       uHorizonColor: { value: new THREE.Color('#a9c2ca') },
       uZenithColor: { value: new THREE.Color('#527995') },
     },

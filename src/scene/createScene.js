@@ -21,20 +21,20 @@ export function createScene(canvas) {
   renderer.toneMappingExposure = 1.08;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog('#81969b', 26, 68);
+  scene.fog = new THREE.Fog('#a9c2ca', 38, 82);
 
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 160);
-  camera.position.set(15.5, 13.5, 20.5);
+  const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 160);
+  camera.position.set(22, 18, 30);
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.065;
   controls.enablePan = false;
-  controls.minDistance = 12;
-  controls.maxDistance = 34;
+  controls.minDistance = 14;
+  controls.maxDistance = 48;
   controls.minPolarAngle = 0.42;
   controls.maxPolarAngle = 1.42;
-  controls.target.set(0, 1.4, 0);
+  controls.target.set(0, 1, 0);
 
   const ambientLight = new THREE.HemisphereLight('#e1f2ff', '#58442e', 1.15);
   scene.add(ambientLight);
@@ -63,10 +63,12 @@ export function createScene(canvas) {
   scene.add(sky.root);
 
   let frameId = 0;
-  const clock = new THREE.Clock();
+  const timer = new THREE.Timer();
+  timer.connect(document);
 
-  function render() {
-    const deltaSeconds = Math.min(clock.getDelta(), 0.05);
+  function render(timestamp) {
+    timer.update(timestamp);
+    const deltaSeconds = Math.min(timer.getDelta(), 0.05);
     model.update(deltaSeconds);
     sky.update(deltaSeconds);
     controls.update();
@@ -92,6 +94,7 @@ export function createScene(canvas) {
   function dispose() {
     cancelAnimationFrame(frameId);
     controls.dispose();
+    timer.dispose();
     model.dispose();
     sky.dispose();
     renderer.dispose();

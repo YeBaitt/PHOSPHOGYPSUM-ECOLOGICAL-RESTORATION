@@ -61,4 +61,18 @@ describe('unified terrain', () => {
     expect(after).toBeGreaterThan(middle);
     terrain.dispose();
   });
+
+  it('provides the uniforms required by scene fog', () => {
+    const terrain = createUnifiedTerrain(rendererStub(), {
+      segmentsX: 16,
+      segmentsZ: 12,
+      loadImages: false,
+    });
+
+    expect(terrain.mesh.material.fog).toBe(true);
+    expect(terrain.mesh.material.uniforms.fogColor).toBeTruthy();
+    expect(terrain.mesh.material.uniforms.fogNear).toBeTruthy();
+    expect(terrain.mesh.material.uniforms.fogFar).toBeTruthy();
+    terrain.dispose();
+  });
 });

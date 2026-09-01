@@ -46,9 +46,10 @@ function loadSprite(path, fallbackColor, loadImages) {
   return texture;
 }
 
-function createCutoutMaterial(texture) {
+function createCutoutMaterial(texture, color) {
   const material = new THREE.MeshStandardMaterial({
     map: texture,
+    color,
     transparent: true,
     alphaTest: 0.35,
     side: THREE.DoubleSide,
@@ -123,8 +124,8 @@ export function createVegetation(renderer, options = {}) {
   const loadImages = options.loadImages !== false;
   const treeTexture = loadSprite('/assets/terrain/tree-sprite.png', '#426b32', loadImages);
   const shrubTexture = loadSprite('/assets/terrain/shrub-sprite.png', '#4d7336', loadImages);
-  const treeMaterial = createCutoutMaterial(treeTexture);
-  const shrubMaterial = createCutoutMaterial(shrubTexture);
+  const treeMaterial = createCutoutMaterial(treeTexture, '#5f8150');
+  const shrubMaterial = createCutoutMaterial(shrubTexture, '#668b4c');
   const grassMaterial = new THREE.MeshStandardMaterial({
     color: '#668746',
     roughness: 1,
@@ -132,7 +133,8 @@ export function createVegetation(renderer, options = {}) {
   });
   const treeGeometry = createCrossedPlaneGeometry(1.15, 2.35);
   const shrubGeometry = createCrossedPlaneGeometry(1.25, 0.9);
-  const grassGeometry = createCrossedPlaneGeometry(0.12, 0.26);
+  const grassGeometry = new THREE.ConeGeometry(0.065, 0.28, 3, 1, false);
+  grassGeometry.translate(0, 0.14, 0);
 
   const root = new THREE.Group();
   root.name = 'vegetation-system';
@@ -147,8 +149,8 @@ export function createVegetation(renderer, options = {}) {
         ...point,
         y: getTerrainHeight('restoration', point.x, point.z) - 0.02,
         rotation: seeded(point.seed + 4) * Math.PI,
-        scaleX: 0.8 + seeded(point.seed + 6) * 0.85,
-        scaleY: 1.35 + seeded(point.seed + 8) * 1.5,
+        scaleX: 0.45 + seeded(point.seed + 6) * 0.4,
+        scaleY: 0.55 + seeded(point.seed + 8) * 0.55,
       };
     },
   );
