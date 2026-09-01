@@ -80,3 +80,13 @@ export function createAssetTexture(kind, renderer, options = {}) {
   return texture;
 }
 
+export function createTerrainTextureSet(renderer, options = {}) {
+  const loadImage = options.loadImages !== false;
+  return Object.fromEntries(
+    Object.keys(assetTextures).map(kind => [
+      kind,
+      createAssetTexture(kind, renderer, { loadImage }),
+    ]),
+  );
+}
+
