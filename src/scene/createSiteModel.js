@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { createTexture } from './createTexture.js';
 import { getStageConfig } from './stageConfig.js';
+import {
+  SITE_BOUNDARY,
+  createRingGeometry,
+  createSurfaceGeometry,
+  scaleRing,
+} from './createTerrainGeometry.js';
 
 function makeMaterial(texture, options = {}) {
   return new THREE.MeshStandardMaterial({
@@ -46,19 +52,20 @@ function createPit(material) {
   const group = new THREE.Group();
   group.name = 'pit-layer';
 
-  const floor = makeMesh(new THREE.CircleGeometry(6.35, 64), material, 'pit-floor');
-  floor.rotation.x = -Math.PI / 2;
-  floor.scale.z = 0.7;
-  floor.position.y = -2.38;
+  const rim = scaleRing(SITE_BOUNDARY, 1, 0);
+  const floorRing = scaleRing(SITE_BOUNDARY, { x: 0.67, z: 0.64 }, -2.72);
+  const floor = makeMesh(
+    createSurfaceGeometry(floorRing, -2.7),
+    material,
+    'pit-floor',
+  );
   group.add(floor);
 
   const wall = makeMesh(
-    new THREE.CylinderGeometry(8.45, 6.35, 2.4, 64, 5, true),
+    createRingGeometry(rim, floorRing),
     material,
     'pit-wall',
   );
-  wall.scale.z = 0.7;
-  wall.position.y = -1.18;
   group.add(wall);
   return group;
 }
@@ -215,19 +222,12 @@ function createGround(material) {
   shape.closePath();
 
   const opening = new THREE.Path();
-  opening.absellipse(0, 0, 8.55, 6, 0, Math.PI * 2, true);
+  opening.moveTo(SITE_BOUNDARY[0].x, SITE_BOUNDARY[0].z);
+  SITE_BOUNDARY.slice(1).forEach((point) => opening.lineTo(point.x, point.z));
+  opening.closePath();
   shape.holes.push(opening);
 
-  const ground = makeMesh(new THREE.ShapeGeometry(shape, 24), material, 'site-ground');
-  const position = ground.geometry.attributes.position;
-  for (let index = 0; index < position.count; index += 1) {
-    const x = position.getX(index);
-    const y = position.getY(index);
-    const height = Math.sin(x * 0.42) * 0.07 + Math.cos(y * 0.37) * 0.06;
-    position.setZ(index, height);
-  }
-  position.needsUpdate = true;
-  ground.geometry.computeVertexNormals();
+  const ground = makeMesh(new THREE.ShapeGeometry(shape), material, 'site-ground');
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = 0.04;
   return ground;

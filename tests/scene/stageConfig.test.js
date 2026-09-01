@@ -49,7 +49,7 @@ describe('site model', () => {
     model.dispose();
   });
 
-  it('uses a wider pit rim than floor and a shaped ground opening', () => {
+  it('uses an asymmetric terrain wall instead of a regular cylinder', () => {
     const context = {
       fillRect: vi.fn(),
       beginPath: vi.fn(),
@@ -64,10 +64,18 @@ describe('site model', () => {
     });
     const pitWall = model.root.getObjectByName('pit-wall');
     const ground = model.root.getObjectByName('site-ground');
+    const positions = pitWall.geometry.attributes.position;
+    const rimRadii = [];
 
-    expect(pitWall.geometry.parameters.radiusTop).toBeGreaterThan(
-      pitWall.geometry.parameters.radiusBottom,
-    );
+    for (let index = 0; index < positions.count; index += 1) {
+      if (positions.getY(index) > -0.1) {
+        rimRadii.push(Math.hypot(positions.getX(index), positions.getZ(index)));
+      }
+    }
+
+    expect(pitWall.geometry.type).toBe('BufferGeometry');
+    expect(pitWall.geometry.parameters?.radiusTop).toBeUndefined();
+    expect(Math.max(...rimRadii) - Math.min(...rimRadii)).toBeGreaterThan(0.5);
     expect(ground.geometry.type).toBe('ShapeGeometry');
     model.dispose();
   });
