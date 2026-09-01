@@ -48,4 +48,27 @@ describe('site model', () => {
     expect(model.root.getObjectByName('shrubs-layer').visible).toBe(true);
     model.dispose();
   });
+
+  it('uses a wider pit rim than floor and a shaped ground opening', () => {
+    const context = {
+      fillRect: vi.fn(),
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      set fillStyle(value) {},
+      set globalAlpha(value) {},
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const model = createSiteModel({
+      capabilities: { getMaxAnisotropy: () => 4 },
+    });
+    const pitWall = model.root.getObjectByName('pit-wall');
+    const ground = model.root.getObjectByName('site-ground');
+
+    expect(pitWall.geometry.parameters.radiusTop).toBeGreaterThan(
+      pitWall.geometry.parameters.radiusBottom,
+    );
+    expect(ground.geometry.type).toBe('ShapeGeometry');
+    model.dispose();
+  });
 });
