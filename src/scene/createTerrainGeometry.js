@@ -33,6 +33,7 @@ export function createRingGeometry(outer, inner) {
   }
 
   const positions = [];
+  const uvs = [];
   for (let index = 0; index < outer.length; index += 1) {
     const next = (index + 1) % outer.length;
     const a = outer[index];
@@ -47,10 +48,21 @@ export function createRingGeometry(outer, inner) {
       d.x, d.y, d.z,
       c.x, c.y, c.z,
     );
+    const u0 = index / outer.length;
+    const u1 = (index + 1) / outer.length;
+    uvs.push(
+      u0, 1,
+      u1, 1,
+      u0, 0,
+      u1, 1,
+      u1, 0,
+      u0, 0,
+    );
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -66,4 +78,3 @@ export function createSurfaceGeometry(points, y) {
   geometry.computeVertexNormals();
   return geometry;
 }
-

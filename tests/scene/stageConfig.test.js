@@ -79,4 +79,34 @@ describe('site model', () => {
     expect(ground.geometry.type).toBe('ShapeGeometry');
     model.dispose();
   });
+
+  it('includes the engineering cues that distinguish all five stages', () => {
+    const context = {
+      fillRect: vi.fn(),
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      set fillStyle(value) {},
+      set globalAlpha(value) {},
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const model = createSiteModel({
+      capabilities: { getMaxAnisotropy: () => 4 },
+    });
+
+    const expectedDetails = {
+      'liner-seams': 'liner-layer',
+      'drainage-pipe': 'liner-layer',
+      'haul-road': 'gypsum-layer',
+      'cover-tracks': 'cover-layer',
+      'restoration-trees': 'shrubs-layer',
+    };
+
+    Object.entries(expectedDetails).forEach(([detailName, layerName]) => {
+      const detail = model.root.getObjectByName(detailName);
+      expect(detail, `${detailName} should exist`).toBeTruthy();
+      expect(detail.parent?.name).toBe(layerName);
+    });
+    model.dispose();
+  });
 });
