@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getStageConfig } from '../../src/scene/stageConfig.js';
 import { createSiteModel } from '../../src/scene/createSiteModel.js';
+import { createAssetTexture } from '../../src/scene/createTexture.js';
 
 describe('stage configuration', () => {
   it('progresses from an exposed pit to restored vegetation', () => {
@@ -26,6 +27,34 @@ describe('stage configuration', () => {
 });
 
 describe('site model', () => {
+  it('configures resilient local textures for every terrain material', () => {
+    const context = {
+      fillRect: vi.fn(),
+      set fillStyle(value) {},
+      set globalAlpha(value) {},
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const renderer = { capabilities: { getMaxAnisotropy: () => 16 } };
+
+    const expectedPaths = {
+      rock: '/assets/terrain/rock-soil.png',
+      liner: '/assets/terrain/geomembrane.png',
+      gypsum: '/assets/terrain/phosphogypsum.png',
+      cover: '/assets/terrain/topsoil.png',
+      grass: '/assets/terrain/vegetation.png',
+    };
+
+    Object.entries(expectedPaths).forEach(([kind, assetPath]) => {
+      const texture = createAssetTexture(kind, renderer, { loadImage: false });
+      expect(texture.userData.assetPath).toBe(assetPath);
+      expect(texture.wrapS).toBe(texture.wrapT);
+      expect(texture.colorSpace).toBe('srgb');
+      texture.dispose();
+    });
+    expect(() => createAssetTexture('other', renderer, { loadImage: false }))
+      .toThrow('Unknown asset texture: other');
+  });
+
   it('applies stage visibility to the real model layers', () => {
     const context = {
       fillRect: vi.fn(),

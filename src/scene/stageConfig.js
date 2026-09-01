@@ -24,7 +24,7 @@ const stageConfigs = {
     cover: false,
     grass: false,
     shrubs: false,
-    targetY: 2.3,
+    targetY: 1.25,
   },
   cover: {
     pit: true,
@@ -33,7 +33,7 @@ const stageConfigs = {
     cover: true,
     grass: false,
     shrubs: false,
-    targetY: 2.5,
+    targetY: 1.35,
   },
   restoration: {
     pit: true,
@@ -42,7 +42,7 @@ const stageConfigs = {
     cover: true,
     grass: true,
     shrubs: true,
-    targetY: 2.6,
+    targetY: 1.45,
   },
 };
 

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { createTexture } from './createTexture.js';
+import { createAssetTexture } from './createTexture.js';
 import { getStageConfig } from './stageConfig.js';
 import {
   SITE_BOUNDARY,
+  createHeightFieldGeometry,
   createRingGeometry,
   createSurfaceGeometry,
   scaleRing,
@@ -76,6 +77,20 @@ function createRibbonGeometry(points, width) {
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
+}
+
+function densifyPath(coordinates, stepsPerSegment = 8) {
+  const points = [];
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const [x0, z0] = coordinates[index];
+    const [x1, z1] = coordinates[index + 1];
+    for (let step = 0; step < stepsPerSegment; step += 1) {
+      const t = step / stepsPerSegment;
+      points.push([x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]);
+    }
+  }
+  points.push(coordinates.at(-1));
+  return points;
 }
 
 function createPit(material, rockMaterial) {
@@ -154,36 +169,47 @@ function createLiner(material, seamMaterial, pipeMaterial) {
   return group;
 }
 
-const TERRACES = [
-  { bottom: 0.73, top: 0.69, y0: -2.56, y1: -1.2, x: 0, z: 0 },
-  { bottom: 0.61, top: 0.57, y0: -1.05, y1: 0.08, x: -0.2, z: 0.08 },
-  { bottom: 0.49, top: 0.44, y0: 0.23, y1: 1.2, x: 0.12, z: -0.12 },
-  { bottom: 0.36, top: 0.3, y0: 1.35, y1: 2.18, x: -0.1, z: 0.08 },
-];
+function moundHeightAt(x, z) {
+  const radial = Math.hypot((x + 0.15) / 6.45, (z - 0.08) / 4.72)
+    * (1 + Math.sin(Math.atan2(z, x) * 5) * 0.035);
+  const noise = Math.sin(x * 2.13 + z * 0.72) * 0.035
+    + Math.cos(z * 2.47 - x * 0.36) * 0.025;
+  let height;
+  if (radial < 0.27) height = 1.92;
+  else if (radial < 0.37) height = 1.92 - ((radial - 0.27) / 0.1) * 0.72;
+  else if (radial < 0.49) height = 1.2;
+  else if (radial < 0.59) height = 1.2 - ((radial - 0.49) / 0.1) * 0.76;
+  else if (radial < 0.71) height = 0.44;
+  else if (radial < 0.81) height = 0.44 - ((radial - 0.71) / 0.1) * 0.88;
+  else if (radial < 0.91) height = -0.44;
+  else height = -0.44 - Math.min(1, (radial - 0.91) / 0.13) * 1.82;
+  return height + noise;
+}
 
 function createTerracedMound(material, name, scalePad = 0, heightPad = 0) {
   const group = new THREE.Group();
   group.name = name;
-  TERRACES.forEach((terrace, index) => {
-    const bottom = offsetRing(SITE_BOUNDARY, terrace.bottom + scalePad, terrace.y0 + heightPad, terrace.x, terrace.z);
-    const top = offsetRing(SITE_BOUNDARY, terrace.top + scalePad, terrace.y1 + heightPad, terrace.x, terrace.z);
-    group.add(makeMesh(createRingGeometry(bottom, top), material, `${name}-slope-${index + 1}`));
-    group.add(makeMesh(createSurfaceGeometry(top, terrace.y1 + heightPad + 0.01), material, `${name}-bench-${index + 1}`));
-  });
+  const boundary = offsetRing(SITE_BOUNDARY, 0.75 + scalePad, 0)
+    .map(({ x, z }) => ({ x, z }));
+  group.add(makeMesh(
+    createHeightFieldGeometry(boundary, (x, z) => moundHeightAt(x, z) + heightPad),
+    material,
+    `${name}-terrain`,
+  ));
   return group;
 }
 
 function createHaulRoad(material) {
-  const road = makeMesh(createRibbonGeometry([
-    { x: 7.2, y: -1.02, z: -3.25 },
-    { x: 4.9, y: -0.94, z: -3.7 },
-    { x: 1.8, y: -0.78, z: -3.75 },
-    { x: -1.6, y: -0.35, z: -3.25 },
-    { x: -3.7, y: 0.18, z: -1.85 },
-    { x: -3.1, y: 0.74, z: 0.15 },
-    { x: -1.2, y: 1.28, z: 1.2 },
-    { x: 1.5, y: 1.76, z: 1.05 },
-  ], 0.68), material, 'haul-road');
+  const coordinates = [
+    [5.9, -2.8], [4.6, -3.35], [2.5, -3.5], [0.2, -3.28],
+    [-2.1, -2.55], [-3.55, -1.35], [-3.45, 0.25], [-2.2, 1.05],
+    [-0.45, 1.35], [1.25, 0.9],
+  ];
+  const road = makeMesh(createRibbonGeometry(densifyPath(coordinates).map(([x, z]) => ({
+    x,
+    z,
+    y: moundHeightAt(x, z) + 0.17,
+  })), 0.58), material, 'haul-road');
   road.castShadow = false;
   return road;
 }
@@ -192,13 +218,12 @@ function createCoverTracks(material) {
   const group = new THREE.Group();
   group.name = 'cover-tracks';
   [-0.12, 0.12].forEach((offset) => {
-    group.add(makeMesh(createRibbonGeometry([
-      { x: -5, y: -0.82, z: -2.8 + offset },
-      { x: -2.4, y: -0.3, z: -2.15 + offset },
-      { x: -0.3, y: 0.31, z: -1.1 + offset },
-      { x: 1.5, y: 0.92, z: 0.05 + offset },
-      { x: 1.1, y: 1.78, z: 1.25 + offset },
-    ], 0.095), material, `cover-track-${offset < 0 ? 'left' : 'right'}`));
+    const coordinates = [[-4.7, -2.5], [-3.2, -1.9], [-1.7, -1], [-0.35, -0.15], [0.8, 0.65]];
+    group.add(makeMesh(createRibbonGeometry(densifyPath(coordinates, 6).map(([x, z]) => ({
+      x,
+      z: z + offset,
+      y: moundHeightAt(x, z + offset) + 0.135,
+    })), 0.095), material, `cover-track-${offset < 0 ? 'left' : 'right'}`));
   });
   return group;
 }
@@ -211,8 +236,9 @@ function createGrassTufts(material) {
   for (let index = 0; index < 260; index += 1) {
     const angle = index * 2.399;
     const radius = 0.7 + (index % 22) * 0.22;
-    const tier = Math.min(3, Math.floor(radius / 1.55));
-    transform.position.set(Math.cos(angle) * radius, 2.55 - tier * 1.05 + (index % 3) * 0.025, Math.sin(angle) * radius * 0.72);
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius * 0.72;
+    transform.position.set(x, moundHeightAt(x, z) + 0.36, z);
     transform.rotation.y = angle;
     transform.scale.setScalar(index % 7 === 0 ? 0.35 : 0.75 + (index % 5) * 0.08);
     transform.updateMatrix();
@@ -231,8 +257,9 @@ function createRestorationPlants(shrubMaterial, trunkMaterial, canopyMaterial) {
   for (let index = 0; index < 54; index += 1) {
     const angle = index * 2.399;
     const radius = 1.1 + (index % 9) * 0.48;
-    const tier = Math.min(3, Math.floor(radius / 1.55));
-    transform.position.set(Math.cos(angle) * radius, 2.62 - tier * 1.04, Math.sin(angle) * radius * 0.72);
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius * 0.72;
+    transform.position.set(x, moundHeightAt(x, z) + 0.31, z);
     transform.scale.set(0.75 + (index % 3) * 0.16, 0.55, 0.8);
     transform.updateMatrix();
     shrubs.setMatrixAt(index, transform.matrix);
@@ -243,22 +270,28 @@ function createRestorationPlants(shrubMaterial, trunkMaterial, canopyMaterial) {
   trees.name = 'restoration-trees';
   const count = 18;
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.075, 0.72, 6), trunkMaterial, count);
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.34, 1), canopyMaterial, count);
+  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.3, 1), canopyMaterial, count * 3);
   for (let index = 0; index < count; index += 1) {
     const angle = index * 2.15 + 0.7;
     const radius = 1.3 + (index % 6) * 0.61;
-    const tier = Math.min(3, Math.floor(radius / 1.55));
-    const baseY = 2.57 - tier * 1.04;
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius * 0.7;
+    const baseY = moundHeightAt(x, z) + 0.2;
     transform.position.set(x, baseY + 0.36, z);
     transform.scale.setScalar(0.8 + (index % 4) * 0.08);
     transform.updateMatrix();
     trunks.setMatrixAt(index, transform.matrix);
-    transform.position.y = baseY + 0.83;
-    transform.scale.set(0.9, 1.15, 0.9);
-    transform.updateMatrix();
-    crowns.setMatrixAt(index, transform.matrix);
+    for (let lobe = 0; lobe < 3; lobe += 1) {
+      const lobeAngle = angle + lobe * 2.094;
+      transform.position.set(
+        x + Math.cos(lobeAngle) * 0.17,
+        baseY + 0.76 + (lobe === 0 ? 0.13 : 0),
+        z + Math.sin(lobeAngle) * 0.17,
+      );
+      transform.scale.set(0.92, 1.08 + (lobe === 0 ? 0.12 : 0), 0.92);
+      transform.updateMatrix();
+      crowns.setMatrixAt(index * 3 + lobe, transform.matrix);
+    }
   }
   trunks.castShadow = true;
   crowns.castShadow = true;
@@ -269,12 +302,12 @@ function createRestorationPlants(shrubMaterial, trunkMaterial, canopyMaterial) {
 
 function createGround(material) {
   const shape = new THREE.Shape();
-  shape.moveTo(-17, -12);
-  shape.lineTo(17, -12);
-  shape.lineTo(17, 12);
-  shape.lineTo(-17, 12);
+  shape.moveTo(-28, -20);
+  shape.lineTo(28, -20);
+  shape.lineTo(28, 20);
+  shape.lineTo(-28, 20);
   shape.closePath();
-  const holePoints = [...SITE_BOUNDARY].reverse();
+  const holePoints = scaleRing(SITE_BOUNDARY, 0.98, 0).reverse();
   const opening = new THREE.Path();
   opening.moveTo(holePoints[0].x, holePoints[0].z);
   holePoints.slice(1).forEach((point) => opening.lineTo(point.x, point.z));
@@ -321,54 +354,31 @@ function createContextDetails(materials) {
   }
   context.add(rocks);
 
-  const forest = new THREE.Group();
-  forest.name = 'distant-forest';
-  const count = 84;
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.09, 0.9, 5), materials.trunk, count);
-  const crowns = new THREE.InstancedMesh(new THREE.ConeGeometry(0.48, 1.35, 7), materials.forest, count);
-  for (let index = 0; index < count; index += 1) {
-    const row = Math.floor(index / 28);
-    const column = index % 28;
-    const x = -16.2 + column * 1.2 + (row % 2) * 0.46;
-    const z = 8.9 + row * 1.15 + Math.sin(column * 1.7) * 0.24;
-    const size = 0.78 + (index % 5) * 0.07;
-    transform.position.set(x, 0.52 * size, z);
-    transform.scale.setScalar(size);
-    transform.updateMatrix();
-    trunks.setMatrixAt(index, transform.matrix);
-    transform.position.y = 1.25 * size;
-    transform.updateMatrix();
-    crowns.setMatrixAt(index, transform.matrix);
-  }
-  trunks.castShadow = true;
-  crowns.castShadow = true;
-  forest.add(trunks, crowns);
-  context.add(forest);
   return context;
 }
 
 export function createSiteModel(renderer) {
   const textures = {
-    soil: createTexture('soil', renderer),
-    gypsum: createTexture('gypsum', renderer),
-    liner: createTexture('liner', renderer),
-    grass: createTexture('grass', renderer),
+    rock: createAssetTexture('rock', renderer),
+    gypsum: createAssetTexture('gypsum', renderer),
+    liner: createAssetTexture('liner', renderer),
+    cover: createAssetTexture('cover', renderer),
+    grass: createAssetTexture('grass', renderer),
   };
   const materials = {
-    soil: makeMaterial(textures.soil, { color: '#76583d', bumpScale: 0.28 }),
-    gypsum: makeMaterial(textures.gypsum, { color: '#ece9dd', roughness: 0.86, bumpScale: 0.24 }),
-    gypsumRoad: makeMaterial(textures.gypsum, { color: '#bcb8aa', roughness: 1, bumpScale: 0.3 }),
-    liner: makeMaterial(textures.liner, { color: '#111719', roughness: 0.43, metalness: 0.12, bumpScale: 0.08 }),
-    cover: makeMaterial(textures.soil, { color: '#855a36', bumpScale: 0.22 }),
-    track: makeMaterial(textures.soil, { color: '#493422', roughness: 1 }),
-    grass: makeMaterial(textures.grass, { color: '#557b38', roughness: 1 }),
-    shrub: makeMaterial(textures.grass, { color: '#3e6b32', roughness: 1 }),
-    forest: makeMaterial(textures.grass, { color: '#294f2a', roughness: 1 }),
-    rock: makeMaterial(textures.soil, { color: '#675a4d', roughness: 1, bumpScale: 0.34, flatShading: true }),
-    road: makeMaterial(textures.soil, { color: '#9a7a53', roughness: 1, bumpScale: 0.25 }),
-    drainage: makeMaterial(textures.soil, { color: '#59656a', roughness: 0.94 }),
+    soil: makeMaterial(textures.rock, { color: '#b7aa9a', bumpScale: 0.28 }),
+    gypsum: makeMaterial(textures.gypsum, { color: '#ffffff', roughness: 0.9, bumpScale: 0.24 }),
+    gypsumRoad: makeMaterial(textures.gypsum, { color: '#9d927c', roughness: 1, bumpScale: 0.3 }),
+    liner: makeMaterial(textures.liner, { color: '#73787a', roughness: 0.76, metalness: 0.02, bumpScale: 0.06 }),
+    cover: makeMaterial(textures.cover, { color: '#c4a080', bumpScale: 0.22 }),
+    track: makeMaterial(textures.cover, { color: '#5f4735', roughness: 1 }),
+    grass: makeMaterial(textures.grass, { color: '#b6c6a3', roughness: 1 }),
+    shrub: makeMaterial(textures.grass, { color: '#739064', roughness: 1 }),
+    rock: makeMaterial(textures.rock, { color: '#9c9389', roughness: 1, bumpScale: 0.34, flatShading: true }),
+    road: makeMaterial(textures.cover, { color: '#b4936d', roughness: 1, bumpScale: 0.25 }),
+    drainage: makeMaterial(textures.rock, { color: '#697378', roughness: 0.94 }),
     trunk: new THREE.MeshStandardMaterial({ color: '#54402c', roughness: 1 }),
-    canopy: makeMaterial(textures.grass, { color: '#4c7a3b', roughness: 1 }),
+    canopy: makeMaterial(textures.grass, { color: '#789d69', roughness: 1 }),
     seam: new THREE.LineBasicMaterial({ color: '#667b82', transparent: true, opacity: 0.82 }),
     pipe: new THREE.MeshStandardMaterial({ color: '#313b3f', roughness: 0.48, metalness: 0.22 }),
   };
@@ -381,8 +391,8 @@ export function createSiteModel(renderer) {
     pit: createPit(materials.soil, materials.rock),
     liner: createLiner(materials.liner, materials.seam, materials.pipe),
     gypsum: createTerracedMound(materials.gypsum, 'gypsum-layer'),
-    cover: createTerracedMound(materials.cover, 'cover-layer', 0.018, 0.1),
-    grass: createTerracedMound(materials.grass, 'grass-layer', 0.034, 0.18),
+    cover: createTerracedMound(materials.cover, 'cover-layer', 0.055, 0.16),
+    grass: createTerracedMound(materials.grass, 'grass-layer', 0.082, 0.27),
     shrubs: createRestorationPlants(materials.shrub, materials.trunk, materials.canopy),
   };
   layers.gypsum.add(createHaulRoad(materials.gypsumRoad));
@@ -395,6 +405,8 @@ export function createSiteModel(renderer) {
     Object.entries(layers).forEach(([key, layer]) => {
       layer.visible = config[key];
     });
+    const looseRock = layers.pit.getObjectByName('pit-loose-rock');
+    looseRock.visible = stageId === 'pit';
     return config;
   }
 

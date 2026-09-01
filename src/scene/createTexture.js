@@ -7,6 +7,14 @@ const palettes = {
   grass: ['#345f2b', '#527f38', '#243f20'],
 };
 
+const assetTextures = {
+  rock: { fallback: 'soil', path: '/assets/terrain/rock-soil.png' },
+  liner: { fallback: 'liner', path: '/assets/terrain/geomembrane.png' },
+  gypsum: { fallback: 'gypsum', path: '/assets/terrain/phosphogypsum.png' },
+  cover: { fallback: 'soil', path: '/assets/terrain/topsoil.png' },
+  grass: { fallback: 'grass', path: '/assets/terrain/vegetation.png' },
+};
+
 function seeded(index) {
   const value = Math.sin(index * 12.9898) * 43758.5453;
   return value - Math.floor(value);
@@ -45,6 +53,30 @@ export function createTexture(kind, renderer) {
   texture.repeat.set(5, 5);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return texture;
+}
+
+export function createAssetTexture(kind, renderer, options = {}) {
+  const config = assetTextures[kind];
+  if (!config) {
+    throw new Error(`Unknown asset texture: ${kind}`);
+  }
+
+  const texture = createTexture(config.fallback, renderer);
+  texture.userData.assetPath = config.path;
+  if (options.loadImage === false) return texture;
+
+  new THREE.ImageLoader().load(
+    config.path,
+    (image) => {
+      texture.image = image;
+      texture.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      // Keep the generated canvas texture as a local, readable fallback.
+    },
+  );
   return texture;
 }
 
