@@ -17,6 +17,7 @@ MATERIAL_SPECS = {
     'shrub': ((0.12, 0.23, 0.07, 1.0), 0.96, 0.08),
     'tree': ((0.10, 0.20, 0.055, 1.0), 0.95, 0.07),
     'trunk': ((0.20, 0.13, 0.07, 1.0), 1.00, 0.04),
+    'toe_gradient': ((1.0, 1.0, 1.0, 1.0), 0.97, 0.04),
 }
 
 
@@ -64,9 +65,17 @@ def create_stage_materials(stage_id):
     }[stage_id]
     keys = {
         body_key, 'rock_soil', 'road', 'drain', 'track', 'gypsum_light', 'gypsum_shadow',
-        'grass', 'shrub', 'tree', 'trunk',
+        'grass', 'shrub', 'tree', 'trunk', 'toe_gradient',
     }
-    return {'body': _material(body_key), **{key: _material(key) for key in keys}}
+    result = {'body': _material(body_key), **{key: _material(key) for key in keys}}
+    gradient = result['toe_gradient']
+    nodes = gradient.node_tree.nodes
+    principled = nodes.get('Principled BSDF')
+    vertex_color = nodes.get('Toe Gradient Color') or nodes.new('ShaderNodeVertexColor')
+    vertex_color.name = 'Toe Gradient Color'
+    vertex_color.layer_name = 'ToeGradient'
+    gradient.node_tree.links.new(vertex_color.outputs['Color'], principled.inputs['Base Color'])
+    return result
 
 
 def assign_material(obj, material):

@@ -18,7 +18,9 @@ describe('stage model loader', () => {
     const request = deferred();
     const fallback = new THREE.Group();
     const scene = new THREE.Group();
-    scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()));
+    const transition = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    transition.name = 'StackToeTransition';
+    scene.add(transition);
     const loader = createStageModelLoader({ acquire: () => request.promise }, fallback);
 
     loader.applyStage('stack');
@@ -32,6 +34,7 @@ describe('stage model loader', () => {
     expect(loaded.scale.x).toBeCloseTo(0.28, 3);
     expect(loaded.scale.y).toBeCloseTo(0.28, 3);
     expect(loaded.scale.z).toBeCloseTo(0.28, 3);
+    expect(loaded.getObjectByName('StackToeTransition').material.polygonOffset).toBe(true);
     loader.update(0.25);
     expect(fallback.visible).toBe(false);
   });

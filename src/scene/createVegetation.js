@@ -120,6 +120,53 @@ function chooseForestPoint(index) {
   }
 }
 
+function createDetailedForest(count) {
+  const group = new THREE.Group();
+  group.name = 'distant-forest';
+  const geometries = [
+    new THREE.CylinderGeometry(0.10, 0.16, 1, 6).translate(0, 0.5, 0),
+    new THREE.ConeGeometry(0.72, 1.35, 7).translate(0, 1.34, 0),
+    new THREE.ConeGeometry(0.52, 1.18, 7).translate(0.08, 2.10, -0.04),
+  ];
+  const materials = [
+    new THREE.MeshStandardMaterial({ color: '#493322', roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: '#315b2d', roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ color: '#47743b', roughness: 0.94 }),
+  ];
+  const names = ['forest-trunks', 'forest-crowns-lower', 'forest-crowns-upper'];
+  const meshes = names.map((name, index) => {
+    const mesh = new THREE.InstancedMesh(geometries[index], materials[index], count);
+    mesh.name = name;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  });
+  const matrix = new THREE.Matrix4();
+  const rotation = new THREE.Quaternion();
+  const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  for (let index = 0; index < count; index += 1) {
+    const point = chooseForestPoint(index);
+    const y = getTerrainHeight('restoration', point.x, point.z) - 0.02;
+    const width = 0.55 + seeded(point.seed + 6) * 0.38;
+    const height = 0.72 + seeded(point.seed + 8) * 0.45;
+    rotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), seeded(point.seed + 4) * Math.PI);
+    position.set(point.x, y, point.z);
+    scale.set(width, height, width);
+    matrix.compose(position, rotation, scale);
+    meshes[0].setMatrixAt(index, matrix);
+    meshes[1].setMatrixAt(index, matrix);
+    position.x += (seeded(point.seed + 12) - 0.5) * 0.13;
+    scale.set(width * 0.84, height * 0.92, width * 0.84);
+    matrix.compose(position, rotation, scale);
+    meshes[2].setMatrixAt(index, matrix);
+  }
+  meshes.forEach(mesh => { mesh.instanceMatrix.needsUpdate = true; });
+  group.add(...meshes);
+  group.userData.resources = { geometries, materials };
+  return group;
+}
+
 export function createVegetation(renderer, options = {}) {
   const loadImages = options.loadImages !== false;
   const treeTexture = loadSprite('/assets/terrain/tree-sprite.png', '#426b32', loadImages);
@@ -138,22 +185,7 @@ export function createVegetation(renderer, options = {}) {
 
   const root = new THREE.Group();
   root.name = 'vegetation-system';
-  const distantForest = createInstancedPlants(
-    'distant-forest',
-    420,
-    treeGeometry,
-    treeMaterial,
-    (index) => {
-      const point = chooseForestPoint(index);
-      return {
-        ...point,
-        y: getTerrainHeight('restoration', point.x, point.z) - 0.02,
-        rotation: seeded(point.seed + 4) * Math.PI,
-        scaleX: 0.45 + seeded(point.seed + 6) * 0.4,
-        scaleY: 0.55 + seeded(point.seed + 8) * 0.55,
-      };
-    },
-  );
+  const distantForest = createDetailedForest(420);
 
   const restoration = new THREE.Group();
   restoration.name = 'restoration-vegetation';
@@ -228,6 +260,8 @@ export function createVegetation(renderer, options = {}) {
   }
 
   function dispose() {
+    distantForest.userData.resources.geometries.forEach(geometry => geometry.dispose());
+    distantForest.userData.resources.materials.forEach(material => material.dispose());
     treeGeometry.dispose();
     shrubGeometry.dispose();
     grassGeometry.dispose();

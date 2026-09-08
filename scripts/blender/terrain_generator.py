@@ -75,6 +75,44 @@ def _ring_strip(name, outer, inner, collection, smooth=False):
     return _mesh_object(name, vertices, faces, collection, smooth)
 
 
+def _toe_transition(stage_id, collection, seed):
+    stage_colors = {
+        'stack': (0.28, 0.285, 0.28, 1.0),
+        'cover': (0.36, 0.31, 0.24, 1.0),
+        'restoration': (0.20, 0.29, 0.12, 1.0),
+    }
+    soil = (0.145, 0.068, 0.026, 1.0)
+    blend_weights = (0.0, 0.90, 1.0, 1.0)
+    rings = [_ring(0.96, 0.16, 0, seed)] + [
+        _ring(scale, height, 20 + index, seed)
+        for index, (scale, height) in enumerate(
+            ((1.10, 0.12), (1.20, 0.08), (1.30, 0.04)), start=1
+        )
+    ]
+    vertices = [point for ring in rings for point in ring]
+    faces = []
+    for ring_index in range(len(rings) - 1):
+        offset = ring_index * ANGULAR_SEGMENTS
+        following_offset = (ring_index + 1) * ANGULAR_SEGMENTS
+        for index in range(ANGULAR_SEGMENTS):
+            following = (index + 1) % ANGULAR_SEGMENTS
+            faces.append((offset + index, offset + following,
+                          following_offset + following, following_offset + index))
+    obj = _mesh_object(f'{stage_id.title()}ToeTransition', vertices, faces,
+                       collection, smooth=True)
+    colors = obj.data.color_attributes.new(
+        name='ToeGradient', type='BYTE_COLOR', domain='POINT',
+    )
+    inner = stage_colors[stage_id]
+    for ring_index in range(len(rings)):
+        blend = blend_weights[ring_index]
+        color = tuple(inner[channel] * (1.0 - blend) + soil[channel] * blend
+                      for channel in range(4))
+        for index in range(ANGULAR_SEGMENTS):
+            colors.data[ring_index * ANGULAR_SEGMENTS + index].color = color
+    return obj
+
+
 def _disk(name, ring, collection, location_z=None):
     average_z = sum(point[2] for point in ring) / len(ring)
     if location_z is None:
@@ -213,6 +251,7 @@ def create_site_terrain(stage_id, seed=7639):
         height_sampler = _pit_height
     else:
         _create_stack_body(collection, seed, stage_id)
+        _toe_transition(stage_id, collection, seed)
         lift = {'stack': 0.0, 'cover': 0.18, 'restoration': 0.28}[stage_id]
         height_sampler = lambda x, y: _stack_height(x, y, lift)
 
@@ -222,6 +261,8 @@ def create_site_terrain(stage_id, seed=7639):
             material = materials['body']
             if obj.name == 'PitShoulder':
                 material = materials['rock_soil']
+            elif obj.name.endswith('ToeTransition'):
+                material = materials['toe_gradient']
             if stage_id == 'stack':
                 if 'Bench' in obj.name or obj.name == 'StackTop':
                     material = materials['gypsum_light']

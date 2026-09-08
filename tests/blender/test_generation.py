@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import math
 
 import bpy
 
@@ -106,6 +107,27 @@ class TerrainGenerationTest(unittest.TestCase):
             color = material.node_tree.nodes.get('Principled BSDF').inputs['Base Color'].default_value
             self.assertLess(max(color[:3]), 0.20)
             self.assertGreater(color[0], color[2] * 2.0)
+
+    def test_late_stages_have_vertex_colored_toe_transitions(self):
+        for stage in ('stack', 'cover', 'restoration'):
+            clear_scene()
+            collection = create_site_terrain(stage, seed=7639)
+            transition = collection.objects[f'{stage.title()}ToeTransition']
+            self.assertGreater(transition.dimensions.x, 145.0)
+            self.assertIn('ToeGradient', transition.data.color_attributes)
+            colors = transition.data.color_attributes['ToeGradient'].data
+            self.assertGreater(len(colors), 300)
+            self.assertNotEqual(tuple(colors[0].color), tuple(colors[-1].color))
+
+    def test_stack_toe_transition_tucks_below_body_boundary(self):
+        collection = create_site_terrain('stack', seed=7639)
+        slope = collection.objects['StackSlope01']
+        transition = collection.objects['StackToeTransition']
+        for index in range(192):
+            body = slope.data.vertices[index].co
+            toe = transition.data.vertices[index].co
+            self.assertLess(math.hypot(toe.x, toe.y), math.hypot(body.x, body.y))
+            self.assertLess(toe.z, body.z)
 
     def test_stack_material_is_gray_white_and_rough(self):
         collection = create_site_terrain('stack', seed=7639)

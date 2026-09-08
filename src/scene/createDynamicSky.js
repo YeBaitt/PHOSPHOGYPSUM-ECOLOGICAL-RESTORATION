@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const vertexShader = `
   varying vec3 vDirection;
@@ -57,8 +58,8 @@ const fragmentShader = `
 `;
 
 export function createDynamicSky() {
-  const geometry = new THREE.SphereGeometry(75, 48, 24);
-  const material = new THREE.ShaderMaterial({
+  const domeGeometry = new THREE.SphereGeometry(75, 48, 24);
+  const domeMaterial = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
@@ -71,18 +72,85 @@ export function createDynamicSky() {
     vertexShader,
     fragmentShader,
   });
-  const root = new THREE.Mesh(geometry, material);
+  const dome = new THREE.Mesh(domeGeometry, domeMaterial);
+  dome.name = 'sky-dome';
+  dome.frustumCulled = false;
+  dome.renderOrder = -100;
+
+  const cloudLobes = [
+    new THREE.IcosahedronGeometry(1, 1).scale(3.2, 1.05, 1.65),
+    new THREE.IcosahedronGeometry(1, 1).scale(2.25, 1.35, 1.45).translate(-2.5, 0.2, 0),
+    new THREE.IcosahedronGeometry(1, 1).scale(2.5, 1.5, 1.55).translate(2.2, 0.35, 0.1),
+    new THREE.IcosahedronGeometry(1, 1).scale(1.9, 1.45, 1.35).translate(0.1, 0.75, -0.25),
+  ];
+  const cloudGeometry = mergeGeometries(cloudLobes, false);
+  cloudLobes.forEach(geometry => geometry.dispose());
+  const cloudMaterial = new THREE.MeshBasicMaterial({
+    color: '#eef1f1', transparent: true, opacity: 0.72,
+    depthWrite: false, fog: false,
+  });
+  const clouds = new THREE.InstancedMesh(cloudGeometry, cloudMaterial, 26);
+  clouds.name = 'volumetric-clouds';
+  clouds.frustumCulled = false;
+  clouds.renderOrder = -90;
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const rotation = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  for (let index = 0; index < clouds.count; index += 1) {
+    const angle = index * 2.399;
+    const radius = 47 + (index % 5) * 3.2;
+    if (index < 7) {
+      position.set(-27 + index * 9, 8 + (index % 3) * 1.8, -38 - (index % 2) * 4);
+    } else {
+      position.set(Math.cos(angle) * radius, 18 + (index % 4) * 2.8, Math.sin(angle) * radius);
+    }
+    rotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle + index * 0.37);
+    scale.set(0.65 + (index % 3) * 0.18, 0.7 + (index % 2) * 0.16, 0.7 + (index % 4) * 0.1);
+    matrix.compose(position, rotation, scale);
+    clouds.setMatrixAt(index, matrix);
+  }
+  clouds.instanceMatrix.needsUpdate = true;
+
+  const sunGeometry = new THREE.CircleGeometry(3.2, 40);
+  const sunMaterial = new THREE.MeshBasicMaterial({
+    color: '#ffe4aa', transparent: true, opacity: 0.82,
+    depthWrite: false, fog: false, side: THREE.DoubleSide,
+  });
+  const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+  sun.name = 'sun-disc';
+  sun.position.set(22, 12, -48);
+  sun.lookAt(0, 5, 0);
+  sun.renderOrder = -80;
+
+  const hazeGeometry = new THREE.CylinderGeometry(67, 67, 12, 64, 1, true);
+  const hazeMaterial = new THREE.MeshBasicMaterial({
+    color: '#c4d0cf', transparent: true, opacity: 0.18,
+    depthWrite: false, fog: false, side: THREE.BackSide,
+  });
+  const haze = new THREE.Mesh(hazeGeometry, hazeMaterial);
+  haze.name = 'horizon-haze';
+  haze.position.y = 3;
+  haze.renderOrder = -85;
+
+  const root = new THREE.Group();
   root.name = 'dynamic-sky';
-  root.frustumCulled = false;
-  root.renderOrder = -100;
+  root.add(dome, clouds, haze, sun);
 
   function update(deltaSeconds) {
-    material.uniforms.uTime.value += deltaSeconds;
+    domeMaterial.uniforms.uTime.value += deltaSeconds;
+    clouds.rotation.y += deltaSeconds * 0.0025;
   }
 
   function dispose() {
-    geometry.dispose();
-    material.dispose();
+    domeGeometry.dispose();
+    cloudGeometry.dispose();
+    sunGeometry.dispose();
+    hazeGeometry.dispose();
+    domeMaterial.dispose();
+    cloudMaterial.dispose();
+    sunMaterial.dispose();
+    hazeMaterial.dispose();
   }
 
   return { root, update, dispose };

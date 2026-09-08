@@ -205,9 +205,12 @@ describe('natural vegetation', () => {
     const forest = vegetation.root.getObjectByName('distant-forest');
 
     expect(trees.isInstancedMesh).toBe(true);
-    expect(forest.isInstancedMesh).toBe(true);
+    expect(forest.isGroup).toBe(true);
+    expect(forest.getObjectByName('forest-trunks').isInstancedMesh).toBe(true);
+    expect(forest.getObjectByName('forest-crowns-lower').isInstancedMesh).toBe(true);
+    expect(forest.getObjectByName('forest-crowns-upper').isInstancedMesh).toBe(true);
     expect(trees.count).toBeGreaterThan(40);
-    expect(forest.count).toBeGreaterThan(300);
+    expect(forest.getObjectByName('forest-trunks').count).toBeGreaterThan(300);
 
     vegetation.applyStage('pit');
     expect(trees.visible).toBe(false);
@@ -218,7 +221,7 @@ describe('natural vegetation', () => {
 
   it('keeps distant forest trees within the landscape scale', () => {
     const vegetation = createVegetation(rendererStub(), { loadImages: false });
-    const forest = vegetation.root.getObjectByName('distant-forest');
+    const forest = vegetation.root.getObjectByName('forest-trunks');
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
     const rotation = new THREE.Quaternion();

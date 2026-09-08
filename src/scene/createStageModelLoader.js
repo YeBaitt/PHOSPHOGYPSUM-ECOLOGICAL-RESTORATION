@@ -34,6 +34,14 @@ function normalizeScene(scene, stageId) {
     } else {
       object.material = object.material.clone();
     }
+    if (/ToeTransition/i.test(object.name)) {
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => {
+        material.polygonOffset = true;
+        material.polygonOffsetFactor = -1;
+        material.polygonOffsetUnits = -1;
+      });
+    }
   });
   return scene;
 }
