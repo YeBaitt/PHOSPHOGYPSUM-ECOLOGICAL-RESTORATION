@@ -207,16 +207,24 @@ export function createVegetation(renderer, options = {}) {
   );
   restoration.add(restorationGrass, restorationShrubs, restorationTrees);
   root.add(distantForest, restoration);
+  let currentStage = 'pit';
+  let stageModelActive = false;
 
   function applyStage(stageId) {
     if (!TERRAIN_STAGE_IDS.includes(stageId)) {
       throw new Error(`Unknown terrain stage: ${stageId}`);
     }
-    const visible = stageId === 'restoration';
+    currentStage = stageId;
+    const visible = stageId === 'restoration' && !stageModelActive;
     restoration.visible = visible;
     restorationGrass.visible = visible;
     restorationShrubs.visible = visible;
     restorationTrees.visible = visible;
+  }
+
+  function setStageModelActive(active) {
+    stageModelActive = active;
+    applyStage(currentStage);
   }
 
   function dispose() {
@@ -231,5 +239,5 @@ export function createVegetation(renderer, options = {}) {
   }
 
   applyStage('pit');
-  return { root, applyStage, dispose };
+  return { root, applyStage, setStageModelActive, dispose };
 }

@@ -19,10 +19,10 @@ function forEachMaterial(scene, callback) {
 
 function normalizeScene(scene, stageId) {
   scene.name = `stage-glb-${stageId}`;
-  scene.scale.setScalar(0.185);
+  scene.scale.setScalar(0.28);
   scene.traverse((object) => {
     if (!object.isMesh) return;
-    object.castShadow = true;
+    object.castShadow = !/(Road|Bands|Tracks|Seams|Rills)/i.test(object.name);
     object.receiveShadow = true;
     if (!object.material) {
       object.material = new THREE.MeshStandardMaterial({
@@ -70,28 +70,40 @@ function disposeInstanceMaterials(scene) {
 export function createStageModelLoader(repository, proceduralFallback) {
   const root = new THREE.Group();
   root.name = 'stage-model-loader';
-  root.add(proceduralFallback);
+  const ownsFallbackObject = proceduralFallback?.isObject3D === true;
+  const setFallbackVisible = typeof proceduralFallback === 'function'
+    ? proceduralFallback
+    : visible => { proceduralFallback.visible = visible; };
+  if (ownsFallbackObject) root.add(proceduralFallback);
 
   let currentStage = 'pit';
   let requestToken = 0;
   let active = null;
+  let outgoing = null;
   let fadeElapsed = FADE_SECONDS;
   let disposed = false;
 
-  function removeActive() {
-    if (!active) return;
-    root.remove(active.scene);
-    disposeInstanceMaterials(active.scene);
-    active.release();
-    active = null;
+  function removeRecord(record) {
+    if (!record) return;
+    root.remove(record.scene);
+    disposeInstanceMaterials(record.scene);
+    record.release();
+  }
+
+  function settleCurrentTransition() {
+    if (outgoing) {
+      removeRecord(outgoing);
+      outgoing = null;
+    }
+    if (active) applyFade(active.scene, 1);
   }
 
   function applyStage(stageId) {
     currentStage = stageId;
     requestToken += 1;
     const token = requestToken;
-    removeActive();
-    proceduralFallback.visible = true;
+    settleCurrentTransition();
+    if (!active) setFallbackVisible(true);
 
     repository.acquire(stageId).then((handle) => {
       if (!handle) return;
@@ -101,9 +113,20 @@ export function createStageModelLoader(repository, proceduralFallback) {
       }
       const scene = normalizeScene(handle.scene, stageId);
       prepareFade(scene);
+      outgoing = active;
       active = { ...handle, scene };
       fadeElapsed = 0;
       root.add(scene);
+      if (outgoing) setFallbackVisible(false);
+    }).then(() => {
+      if (disposed || token !== requestToken) return;
+      if (active?.scene.name === `stage-glb-${stageId}`) return;
+      settleCurrentTransition();
+      if (active) {
+        removeRecord(active);
+        active = null;
+      }
+      setFallbackVisible(true);
     });
   }
 
@@ -112,7 +135,11 @@ export function createStageModelLoader(repository, proceduralFallback) {
     fadeElapsed = Math.min(FADE_SECONDS, fadeElapsed + deltaSeconds);
     const progress = fadeElapsed / FADE_SECONDS;
     applyFade(active.scene, progress);
-    if (progress >= 1) proceduralFallback.visible = false;
+    if (progress >= 1) {
+      removeRecord(outgoing);
+      outgoing = null;
+      setFallbackVisible(false);
+    }
   }
 
   function preload() {
@@ -123,8 +150,11 @@ export function createStageModelLoader(repository, proceduralFallback) {
     if (disposed) return;
     disposed = true;
     requestToken += 1;
-    removeActive();
-    root.remove(proceduralFallback);
+    removeRecord(outgoing);
+    removeRecord(active);
+    outgoing = null;
+    active = null;
+    if (ownsFallbackObject) root.remove(proceduralFallback);
   }
 
   return { root, applyStage, preload, update, dispose };

@@ -33,6 +33,7 @@ const fragmentShader = `
   uniform sampler2D uInnerMap;
   uniform sampler2D uPreviousInnerMap;
   uniform float uMaterialMix;
+  uniform float uStageModelCutout;
   uniform vec3 uSunDirection;
   varying vec3 vModelPosition;
   varying vec3 vViewNormal;
@@ -48,6 +49,7 @@ const fragmentShader = `
   }
 
   void main() {
+    if (uStageModelCutout > 0.5 && vSurfaceMask > 0.04) discard;
     vec3 normalValue = normalize(vViewNormal);
     vec3 outerColor = triplanar(uOuterMap, vModelPosition, normalValue);
     vec3 previousColor = triplanar(uPreviousInnerMap, vModelPosition, normalValue);
@@ -144,6 +146,7 @@ export function createUnifiedTerrain(renderer, options = {}) {
         uInnerMap: { value: textures.rock },
         uPreviousInnerMap: { value: textures.rock },
         uMaterialMix: { value: 1 },
+        uStageModelCutout: { value: 0 },
         uSunDirection: {
           value: new THREE.Vector3(-0.45, 0.8, 0.35).normalize(),
         },
@@ -231,5 +234,16 @@ export function createUnifiedTerrain(renderer, options = {}) {
     Object.values(textures).forEach(texture => texture.dispose());
   }
 
-  return { mesh, applyStage, update, sampleHeight, dispose };
+  function setStageModelActive(active) {
+    material.uniforms.uStageModelCutout.value = active ? 1 : 0;
+  }
+
+  return {
+    mesh,
+    applyStage,
+    update,
+    sampleHeight,
+    setStageModelActive,
+    dispose,
+  };
 }

@@ -58,17 +58,17 @@ def create_haul_roads(stage_id, height_sampler, collection, materials):
         ))
     elif stage_id in ('stack', 'cover', 'restoration'):
         path = _interpolate_path([
-            (-51, -21), (-34, -14), (-18, -21), (1, -14),
-            (19, -4), (10, 10), (-2, 7),
+            (-51, -20), (-42, -12), (-36, 5), (-27, 18),
+            (-11, 23), (5, 19), (18, 10), (11, 2), (0, 7),
         ], 12)
         objects.append(create_ribbon(
             'HaulRoad' if stage_id == 'stack' else f'{stage_id.title()}HaulRoad',
-            path, 7.2, height_sampler, collection, materials['road'], 0.09,
+            path, 5.6, height_sampler, collection, materials['road'], 0.16,
         ))
-        bench_path = _interpolate_path([(-23, 6), (-10, 15), (8, 14), (22, 5)], 12)
+        bench_path = _interpolate_path([(-29, 2), (-20, 15), (0, 20), (21, 12), (27, 1)], 12)
         objects.append(create_ribbon(
             'BenchRoad' if stage_id == 'stack' else f'{stage_id.title()}BenchRoad',
-            bench_path, 4.8, height_sampler, collection, materials['road'], 0.085,
+            bench_path, 3.8, height_sampler, collection, materials['road'], 0.15,
         ))
     return objects
 
@@ -99,6 +99,34 @@ def create_compaction_details(stage_id, height_sampler, collection, materials):
     mesh.update(calc_edges=True)
     obj = bpy.data.objects.new(name, mesh)
     collection.objects.link(obj)
-    assign_material(obj, materials['gypsum_light'] if stage_id == 'stack' else materials['track'])
+    assign_material(obj, materials['gypsum_shadow'] if stage_id == 'stack' else materials['track'])
     return [obj]
 
+
+def create_slope_rills(stage_id, height_sampler, collection, materials):
+    name = 'SlopeRills' if stage_id == 'stack' else 'CoverSlopeRills'
+    vertices = []
+    faces = []
+    slope_ranges = ((0.89, 0.99), (0.71, 0.81), (0.54, 0.63), (0.38, 0.46))
+    for rill_index in range(30):
+        angle = math.tau * rill_index / 30.0 + 0.025 * math.sin(rill_index * 2.7)
+        angular_half_width = 0.0025
+        for outer_scale, inner_scale in slope_ranges:
+            offset = len(vertices)
+            for scale in (outer_scale, inner_scale):
+                for side in (-1.0, 1.0):
+                    sample_angle = angle + angular_half_width * side
+                    x = 54.0 * scale * math.cos(sample_angle)
+                    y = 44.0 * scale * math.sin(sample_angle)
+                    vertices.append((x, y, height_sampler(x, y) + 0.13))
+            faces.append((offset, offset + 2, offset + 3, offset + 1))
+    mesh = bpy.data.meshes.new(f'{name}Mesh')
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update(calc_edges=True)
+    obj = bpy.data.objects.new(name, mesh)
+    collection.objects.link(obj)
+    assign_material(
+        obj,
+        materials['gypsum_shadow'] if stage_id == 'stack' else materials['track'],
+    )
+    return obj

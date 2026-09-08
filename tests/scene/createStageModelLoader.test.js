@@ -29,9 +29,9 @@ describe('stage model loader', () => {
     expect(fallback.visible).toBe(true);
     const loaded = loader.root.getObjectByName('stage-glb-stack');
     expect(loaded).toBeTruthy();
-    expect(loaded.scale.x).toBeCloseTo(0.185, 3);
-    expect(loaded.scale.y).toBeCloseTo(0.185, 3);
-    expect(loaded.scale.z).toBeCloseTo(0.185, 3);
+    expect(loaded.scale.x).toBeCloseTo(0.28, 3);
+    expect(loaded.scale.y).toBeCloseTo(0.28, 3);
+    expect(loaded.scale.z).toBeCloseTo(0.28, 3);
     loader.update(0.25);
     expect(fallback.visible).toBe(false);
   });
@@ -55,6 +55,37 @@ describe('stage model loader', () => {
     expect(loader.root.getObjectByName('stage-glb-stack')).toBeTruthy();
     expect(loader.root.getObjectByName('stage-glb-pit')).toBeFalsy();
     expect(releasePit).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the previous GLB visible without flashing fallback during a switch', async () => {
+    const stack = deferred();
+    const fallback = new THREE.Group();
+    const loader = createStageModelLoader({
+      acquire: async (stage) => {
+        if (stage === 'pit') return { scene: new THREE.Group(), release() {} };
+        return stack.promise;
+      },
+    }, fallback);
+
+    loader.applyStage('pit');
+    await flushPromises();
+    loader.update(0.25);
+    expect(fallback.visible).toBe(false);
+
+    loader.applyStage('stack');
+    expect(fallback.visible).toBe(false);
+    expect(loader.root.getObjectByName('stage-glb-pit')).toBeTruthy();
+
+    stack.resolve({ scene: new THREE.Group(), release() {} });
+    await flushPromises();
+    expect(fallback.visible).toBe(false);
+    expect(loader.root.getObjectByName('stage-glb-pit')).toBeTruthy();
+    expect(loader.root.getObjectByName('stage-glb-stack')).toBeTruthy();
+
+    loader.update(0.25);
+    expect(loader.root.getObjectByName('stage-glb-pit')).toBeFalsy();
+    expect(loader.root.getObjectByName('stage-glb-stack')).toBeTruthy();
+    loader.dispose();
   });
 
   it('keeps fallback visible when acquisition fails', async () => {

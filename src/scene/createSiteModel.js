@@ -28,11 +28,15 @@ export function createSiteModel(renderer, options = {}) {
     load: loadStageGlb,
     warn: options.warn,
   });
-  const stageModels = createStageModelLoader(repository, proceduralRoot);
+  const stageModels = createStageModelLoader(repository, (fallbackVisible) => {
+    terrain.setStageModelActive(!fallbackVisible);
+    engineering.root.visible = fallbackVisible;
+    vegetation.setStageModelActive(!fallbackVisible);
+  });
 
   const root = new THREE.Group();
   root.name = 'site-model';
-  root.add(stageModels.root);
+  root.add(proceduralRoot, stageModels.root);
 
   function applyStage(stageId) {
     const config = getStageConfig(stageId);

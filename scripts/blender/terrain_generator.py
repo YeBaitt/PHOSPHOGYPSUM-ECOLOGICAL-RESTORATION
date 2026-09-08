@@ -7,7 +7,7 @@ import bpy
 
 from drainage import create_cover_cap, create_drainage, create_restoration_plants
 from materials import assign_material, create_stage_materials
-from roads import create_compaction_details, create_haul_roads
+from roads import create_compaction_details, create_haul_roads, create_slope_rills
 
 
 STAGE_IDS = ('pit', 'liner', 'stack', 'cover', 'restoration')
@@ -36,9 +36,11 @@ def _ring(scale, height, ring_index, seed):
         angle = math.tau * index / ANGULAR_SEGMENTS
         radius_noise = (
             1.0
-            + 0.045 * math.sin(3.0 * angle + 0.6 + phase)
-            + 0.028 * math.sin(7.0 * angle - 0.4)
-            + 0.014 * math.sin(11.0 * angle + 1.1)
+            + 0.075 * math.sin(3.0 * angle + 0.6 + phase)
+            + 0.042 * math.sin(7.0 * angle - 0.4)
+            + 0.022 * math.sin(11.0 * angle + 1.1)
+            + 0.045 * max(0.0, math.cos(angle - 2.35)) ** 4
+            - 0.040 * max(0.0, math.cos(angle + 0.72)) ** 6
         )
         x = center_x + BASE_RADIUS_X * scale * radius_noise * math.cos(angle)
         y = center_y + BASE_RADIUS_Y * scale * (
@@ -116,6 +118,43 @@ def _create_stack_body(collection, seed, stage_id):
         )
     top_name = 'StackTop' if stage_id == 'stack' else f'{prefix}Top'
     _disk(top_name, rings[-1], collection)
+    _create_working_cells(collection, seed, lift)
+
+
+def _create_working_cell(name, location, radius_x, radius_y, height,
+                         collection, seed):
+    segments = 64
+    lower = []
+    upper = []
+    randomizer = random.Random(seed)
+    phase = randomizer.uniform(-0.3, 0.3)
+    for index in range(segments):
+        angle = math.tau * index / segments
+        noise = 1.0 + 0.07 * math.sin(3 * angle + phase) + 0.035 * math.sin(7 * angle)
+        lower.append((radius_x * noise * math.cos(angle),
+                      radius_y * noise * math.sin(angle), 0.0))
+        upper.append((radius_x * 0.78 * noise * math.cos(angle) + 0.25,
+                      radius_y * 0.74 * noise * math.sin(angle) - 0.18, height))
+    vertices = lower + upper + [(0.25, -0.18, height + 0.025)]
+    faces = []
+    for index in range(segments):
+        following = (index + 1) % segments
+        faces.append((index, following, segments + following, segments + index))
+        faces.append((segments * 2, segments + index, segments + following))
+    obj = _mesh_object(name, vertices, faces, collection, smooth=False)
+    obj.location = location
+    return obj
+
+
+def _create_working_cells(collection, seed, lift):
+    _create_working_cell(
+        'WorkingCellWest', (-7.2, 1.8, 8.47 + lift),
+        8.4, 6.1, 0.62, collection, seed + 170,
+    )
+    _create_working_cell(
+        'WorkingCellEast', (7.0, -2.2, 8.47 + lift),
+        6.5, 8.0, 0.44, collection, seed + 290,
+    )
 
 
 def _create_pit_body(collection, seed, stage_id):
@@ -179,10 +218,18 @@ def create_site_terrain(stage_id, seed=7639):
     materials = create_stage_materials(stage_id)
     for obj in collection.objects:
         if hasattr(obj.data, 'materials'):
-            assign_material(obj, materials['body'])
+            material = materials['body']
+            if stage_id == 'stack':
+                if 'Bench' in obj.name or obj.name == 'StackTop':
+                    material = materials['gypsum_light']
+                elif 'Slope' in obj.name or 'WorkingCell' in obj.name:
+                    material = materials['gypsum_shadow']
+            assign_material(obj, material)
 
     create_haul_roads(stage_id, height_sampler, collection, materials)
     create_compaction_details(stage_id, height_sampler, collection, materials)
+    if stage_id in ('stack', 'cover'):
+        create_slope_rills(stage_id, height_sampler, collection, materials)
     create_drainage(stage_id, height_sampler, collection, materials)
     if stage_id == 'cover':
         create_cover_cap(height_sampler, collection, materials)

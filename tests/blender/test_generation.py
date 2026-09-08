@@ -63,7 +63,10 @@ class TerrainGenerationTest(unittest.TestCase):
         expectations = {
             'pit': {'PitAccessRoad', 'ToeDrain'},
             'liner': {'Geomembrane', 'LinerSeams', 'DrainagePipe'},
-            'stack': {'HaulRoad', 'BenchRoad', 'CompactionBands'},
+            'stack': {
+                'HaulRoad', 'BenchRoad', 'CompactionBands', 'SlopeRills',
+                'WorkingCellWest', 'WorkingCellEast',
+            },
             'cover': {'CoverSoil', 'CoverTracks'},
             'restoration': {'VegetationPatches', 'Shrubs', 'YoungTrees'},
         }
@@ -81,9 +84,25 @@ class TerrainGenerationTest(unittest.TestCase):
         principled = material.node_tree.nodes.get('Principled BSDF')
         color = principled.inputs['Base Color'].default_value
 
-        self.assertGreater(min(color[:3]), 0.56)
+        self.assertGreater(min(color[:3]), 0.18)
         self.assertLess(max(color[:3]) - min(color[:3]), 0.12)
         self.assertGreater(principled.inputs['Roughness'].default_value, 0.75)
+
+        slope_material = collection.objects['StackSlope01'].data.materials[0]
+        bench_material = collection.objects['StackBench01'].data.materials[0]
+        road_material = collection.objects['HaulRoad'].data.materials[0]
+        self.assertNotEqual(slope_material.name, bench_material.name)
+        self.assertNotEqual(bench_material.name, road_material.name)
+
+    def test_stack_working_cells_are_asymmetric(self):
+        collection = create_site_terrain('stack', seed=7639)
+        west = collection.objects['WorkingCellWest']
+        east = collection.objects['WorkingCellEast']
+
+        self.assertLess(west.location.x, -2.0)
+        self.assertGreater(east.location.x, 2.0)
+        self.assertNotAlmostEqual(west.dimensions.x, east.dimensions.x, places=1)
+        self.assertNotAlmostEqual(west.dimensions.y, east.dimensions.y, places=1)
 
 
 if __name__ == '__main__':
