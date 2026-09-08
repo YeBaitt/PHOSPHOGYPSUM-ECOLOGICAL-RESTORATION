@@ -14,6 +14,14 @@ function rendererStub() {
   return { capabilities: { getMaxAnisotropy: () => 4 } };
 }
 
+function proceduralOnlyOptions() {
+  return {
+    loadImages: false,
+    preloadStageModels: false,
+    loadStageGlb: () => new Promise(() => {}),
+  };
+}
+
 describe('stage configuration', () => {
   it('progresses from an exposed pit to restored vegetation', () => {
     expect(getStageConfig('pit')).toMatchObject({
@@ -79,13 +87,14 @@ describe('site model', () => {
     const renderer = {
       capabilities: { getMaxAnisotropy: () => 4 },
     };
-    const model = createSiteModel(renderer, { loadImages: false });
+    const model = createSiteModel(renderer, proceduralOnlyOptions());
 
     expect(model.root.getObjectByName('unified-terrain')).toBeTruthy();
     expect(model.root.getObjectByName('site-ground')).toBeUndefined();
     expect(model.root.getObjectByName('pit-wall')).toBeUndefined();
     expect(
-      model.root.children.filter(child => child.name === 'unified-terrain'),
+      model.root.getObjectByName('procedural-site-fallback').children
+        .filter(child => child.name === 'unified-terrain'),
     ).toHaveLength(1);
     model.dispose();
   });
@@ -100,7 +109,7 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel(rendererStub(), { loadImages: false });
+    const model = createSiteModel(rendererStub(), proceduralOnlyOptions());
     model.applyStage('restoration');
     model.update(0.6);
 
@@ -120,7 +129,7 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel(rendererStub(), { loadImages: false });
+    const model = createSiteModel(rendererStub(), proceduralOnlyOptions());
 
     const expectedDetails = {
       'liner-seams': 'liner-details',
