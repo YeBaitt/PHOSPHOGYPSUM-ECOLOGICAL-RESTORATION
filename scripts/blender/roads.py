@@ -51,32 +51,27 @@ def _interpolate_path(control_points, steps_per_segment=10):
 
 def create_haul_roads(stage_id, height_sampler, collection, materials):
     objects = []
-    if stage_id == 'pit':
-        path = _interpolate_path([(-50, -19), (-32, -13), (-18, -8), (-7, -3)])
-        objects.append(create_ribbon(
-            'PitAccessRoad', path, 7.0, height_sampler, collection, materials['road'],
-        ))
-    elif stage_id in ('stack', 'cover', 'restoration'):
+    if stage_id == 'stack':
         path = _interpolate_path([
             (-51, -20), (-42, -12), (-36, 5), (-27, 18),
             (-11, 23), (5, 19), (18, 10), (11, 2), (0, 7),
         ], 12)
         objects.append(create_ribbon(
-            'HaulRoad' if stage_id == 'stack' else f'{stage_id.title()}HaulRoad',
+            'HaulRoad',
             path, 5.6, height_sampler, collection, materials['road'], 0.16,
         ))
         bench_path = _interpolate_path([(-29, 2), (-20, 15), (0, 20), (21, 12), (27, 1)], 12)
         objects.append(create_ribbon(
-            'BenchRoad' if stage_id == 'stack' else f'{stage_id.title()}BenchRoad',
+            'BenchRoad',
             bench_path, 3.8, height_sampler, collection, materials['road'], 0.15,
         ))
     return objects
 
 
 def create_compaction_details(stage_id, height_sampler, collection, materials):
-    if stage_id not in ('stack', 'cover'):
+    if stage_id != 'stack':
         return []
-    name = 'CompactionBands' if stage_id == 'stack' else 'CoverTracks'
+    name = 'CompactionBands'
     combined_vertices = []
     combined_faces = []
     for band in range(-7, 8):

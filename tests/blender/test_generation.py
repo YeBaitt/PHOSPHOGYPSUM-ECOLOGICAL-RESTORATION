@@ -51,23 +51,23 @@ class TerrainGenerationTest(unittest.TestCase):
         ]
         self.assertGreater(max(normalized_radii) - min(normalized_radii), 0.06)
 
-    def test_pit_floor_is_below_the_rim(self):
+    def test_pit_floor_is_below_the_slope_edge(self):
         collection = create_site_terrain('pit', seed=7639)
         floor = collection.objects['PitFloor']
-        rim = collection.objects['PitRim']
-        self.assertLess(floor.location.z, rim.location.z - 2.0)
+        slope = collection.objects['PitSlope']
+        self.assertLess(floor.location.z, slope.location.z - 2.0)
         self.assertGreater(floor.dimensions.x, 42.0)
         self.assertGreater(floor.dimensions.y, 30.0)
 
     def test_stage_details_are_distinct(self):
         expectations = {
-            'pit': {'PitAccessRoad', 'ToeDrain'},
-            'liner': {'Geomembrane', 'LinerSeams', 'DrainagePipe'},
+            'pit': {'PitShoulder', 'PitSlope', 'PitFloor'},
+            'liner': {'PitShoulder', 'Geomembrane', 'LinerFloor'},
             'stack': {
                 'HaulRoad', 'BenchRoad', 'CompactionBands', 'SlopeRills',
                 'WorkingCellWest', 'WorkingCellEast',
             },
-            'cover': {'CoverSoil', 'CoverTracks'},
+            'cover': {'CoverSoil'},
             'restoration': {'VegetationPatches', 'Shrubs', 'YoungTrees'},
         }
         for stage, required in expectations.items():
@@ -77,6 +77,35 @@ class TerrainGenerationTest(unittest.TestCase):
                 required <= {obj.name for obj in collection.objects},
                 f'{stage} is missing {required - {obj.name for obj in collection.objects}}',
             )
+
+    def test_ambiguous_regular_construction_details_are_absent(self):
+        forbidden = {
+            'pit': {'PitRim', 'PitAccessRoad', 'ToeDrain'},
+            'liner': {'PitRim', 'LinerSeams', 'DrainagePipe'},
+            'cover': {'WorkingCellWest', 'WorkingCellEast', 'CoverTracks',
+                      'CoverHaulRoad', 'CoverBenchRoad'},
+            'restoration': {'WorkingCellWest', 'WorkingCellEast',
+                            'RestorationHaulRoad', 'RestorationBenchRoad'},
+        }
+        for stage, excluded in forbidden.items():
+            clear_scene()
+            names = {obj.name for obj in create_site_terrain(stage, seed=7639).objects}
+            self.assertFalse(names & excluded, f'{stage} still contains {names & excluded}')
+
+    def test_restoration_terrain_is_fully_vegetated(self):
+        collection = create_site_terrain('restoration', seed=7639)
+        terrain_material = collection.objects['RestorationSlope01'].data.materials[0]
+        self.assertEqual(terrain_material.name, 'PG_grass')
+
+    def test_pit_shoulder_blends_with_surrounding_soil(self):
+        for stage in ('pit', 'liner'):
+            clear_scene()
+            collection = create_site_terrain(stage, seed=7639)
+            material = collection.objects['PitShoulder'].data.materials[0]
+            self.assertEqual(material.name, 'PG_rock_soil')
+            color = material.node_tree.nodes.get('Principled BSDF').inputs['Base Color'].default_value
+            self.assertLess(max(color[:3]), 0.20)
+            self.assertGreater(color[0], color[2] * 2.0)
 
     def test_stack_material_is_gray_white_and_rough(self):
         collection = create_site_terrain('stack', seed=7639)

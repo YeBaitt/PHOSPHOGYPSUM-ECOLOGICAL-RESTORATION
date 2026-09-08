@@ -118,7 +118,8 @@ def _create_stack_body(collection, seed, stage_id):
         )
     top_name = 'StackTop' if stage_id == 'stack' else f'{prefix}Top'
     _disk(top_name, rings[-1], collection)
-    _create_working_cells(collection, seed, lift)
+    if stage_id == 'stack':
+        _create_working_cells(collection, seed, lift)
 
 
 def _create_working_cell(name, location, radius_x, radius_y, height,
@@ -159,11 +160,11 @@ def _create_working_cells(collection, seed, lift):
 
 def _create_pit_body(collection, seed, stage_id):
     outer = _ring(1.00, 0.10, 0, seed)
-    rim_inner = _ring(0.90, 0.10, 1, seed)
+    shoulder_outer = _ring(1.18, 0.08, 3, seed)
     floor_ring = _ring(0.55, -4.10, 2, seed)
-    _ring_strip('PitRim', outer, rim_inner, collection)
+    _ring_strip('PitShoulder', shoulder_outer, outer, collection, smooth=True)
     _ring_strip('Geomembrane' if stage_id == 'liner' else 'PitSlope',
-                rim_inner, floor_ring, collection, smooth=True)
+                outer, floor_ring, collection, smooth=True)
     _disk('LinerFloor' if stage_id == 'liner' else 'PitFloor',
           floor_ring, collection, location_z=-4.10)
 
@@ -219,6 +220,8 @@ def create_site_terrain(stage_id, seed=7639):
     for obj in collection.objects:
         if hasattr(obj.data, 'materials'):
             material = materials['body']
+            if obj.name == 'PitShoulder':
+                material = materials['rock_soil']
             if stage_id == 'stack':
                 if 'Bench' in obj.name or obj.name == 'StackTop':
                     material = materials['gypsum_light']
@@ -226,11 +229,10 @@ def create_site_terrain(stage_id, seed=7639):
                     material = materials['gypsum_shadow']
             assign_material(obj, material)
 
-    create_haul_roads(stage_id, height_sampler, collection, materials)
-    create_compaction_details(stage_id, height_sampler, collection, materials)
-    if stage_id in ('stack', 'cover'):
+    if stage_id == 'stack':
+        create_haul_roads(stage_id, height_sampler, collection, materials)
+        create_compaction_details(stage_id, height_sampler, collection, materials)
         create_slope_rills(stage_id, height_sampler, collection, materials)
-    create_drainage(stage_id, height_sampler, collection, materials)
     if stage_id == 'cover':
         create_cover_cap(height_sampler, collection, materials)
     elif stage_id == 'restoration':

@@ -49,7 +49,8 @@ const fragmentShader = `
   }
 
   void main() {
-    if (uStageModelCutout > 0.5 && vSurfaceMask > 0.04) discard;
+    vec2 stageFootprint = vModelPosition.xz / vec2(16.4, 13.4);
+    if (uStageModelCutout > 0.5 && dot(stageFootprint, stageFootprint) < 1.0) discard;
     vec3 normalValue = normalize(vViewNormal);
     vec3 outerColor = triplanar(uOuterMap, vModelPosition, normalValue);
     vec3 previousColor = triplanar(uPreviousInnerMap, vModelPosition, normalValue);

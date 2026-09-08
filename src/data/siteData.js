@@ -65,7 +65,7 @@ export const sites = {
     },
     stages: {
       pit: noMeasurements('展示堆场建设前的原始基坑示意。报告未提供该历史阶段的明确实测数据。'),
-      liner: noMeasurements('展示基坑整理、防渗膜和排水结构示意。报告未提供该阶段的明确实测数值。'),
+      liner: noMeasurements('展示基坑整理及连续防渗层铺设示意。报告未提供该阶段的明确实测数值。'),
       stack: {
         description: '展示磷石膏分层堆填，并提供磷石膏与渗滤液样品数据。',
         groups: [
@@ -212,7 +212,7 @@ export const sites = {
     },
     stages: {
       pit: noMeasurements('展示堆场建设前的原始基坑示意。报告未提供该历史阶段的明确实测数据。'),
-      liner: noMeasurements('展示基坑整理、防渗膜和排水结构示意。报告未提供该阶段的明确实测数值。'),
+      liner: noMeasurements('展示基坑整理及连续防渗层铺设示意。报告未提供该阶段的明确实测数值。'),
       stack: {
         description: '展示磷石膏分层堆填，并提供磷石膏与渗滤液样品数据。',
         groups: [

@@ -8,7 +8,7 @@ MATERIAL_SPECS = {
     'gypsum_light': ((0.36, 0.355, 0.34, 1.0), 0.91, 0.09),
     'gypsum_shadow': ((0.27, 0.275, 0.27, 1.0), 0.97, 0.16),
     'liner': ((0.022, 0.029, 0.033, 1.0), 0.78, 0.07),
-    'rock_soil': ((0.28, 0.25, 0.21, 1.0), 0.96, 0.15),
+    'rock_soil': ((0.16, 0.10, 0.065, 1.0), 0.96, 0.15),
     'cover': ((0.36, 0.31, 0.24, 1.0), 0.94, 0.13),
     'road': ((0.07, 0.075, 0.075, 1.0), 0.99, 0.12),
     'drain': ((0.16, 0.18, 0.18, 1.0), 0.90, 0.08),
@@ -60,10 +60,10 @@ def create_stage_materials(stage_id):
         'liner': 'liner',
         'stack': 'gypsum',
         'cover': 'cover',
-        'restoration': 'cover',
+        'restoration': 'grass',
     }[stage_id]
     keys = {
-        body_key, 'road', 'drain', 'track', 'gypsum_light', 'gypsum_shadow',
+        body_key, 'rock_soil', 'road', 'drain', 'track', 'gypsum_light', 'gypsum_shadow',
         'grass', 'shrub', 'tree', 'trunk',
     }
     return {'body': _material(body_key), **{key: _material(key) for key in keys}}
