@@ -146,9 +146,70 @@ npm test
 DuiKuang/
 ├─ index.html          网页入口
 ├─ src/                页面与三维模型的主要代码
-├─ public/             图片等静态资源
+├─ public/             图片和五阶段 GLB 等静态资源
+├─ scripts/blender/    Blender 程序化建模、导出与校验脚本
 ├─ tests/              自动检查代码
 ├─ package.json        项目命令与依赖配置
 └─ README.md           本使用说明
+```
+
+## 十、生成精细化磷石膏堆场模型
+
+页面使用下面五个本地模型：
+
+```text
+public/assets/models/
+├─ pit.glb
+├─ liner.glb
+├─ stack.glb
+├─ cover.glb
+└─ restoration.glb
+```
+
+它们在网页中的访问路径是 `/assets/models/文件名.glb`。两个场地共用这套模型，切换场地不会重复下载资产。
+
+本项目已在 Blender 4.5 下验证。使用当前电脑的 Blender 安装路径生成全部模型：
+
+```powershell
+cd D:\WorkRoot\DuiKuang
+& 'D:\Softwares\Blender\blender.exe' --background --factory-startup --python scripts/blender/generate_phosphogypsum_site.py -- --stage all --output public/assets/models
+```
+
+如果只想重新生成磷石膏堆填阶段：
+
+```powershell
+& 'D:\Softwares\Blender\blender.exe' --background --factory-startup --python scripts/blender/generate_phosphogypsum_site.py -- --stage stack --output public/assets/models
+```
+
+`--stage` 还可以使用 `pit`、`liner`、`cover` 或 `restoration`。脚本固定使用可复现的随机种子；如需生成另一个确定性变体，可在命令末尾增加 `--seed 数字`。
+
+生成后检查五个文件的 GLB 格式、场景名称和大小预算：
+
+```powershell
+& 'D:\Softwares\Blender\4.5\python\bin\python.exe' scripts/blender/validate_exports.py public/assets/models
+```
+
+看到五行 `PASS` 后，再运行网页检查：
+
+```powershell
+npm test
+npm run build
+npm run dev
+```
+
+### GLB 缺失时的 fallback
+
+网页会先显示原有的程序化地形，再在后台载入 GLB。某个 GLB 缺失、损坏或解析失败时，只会让对应阶段继续使用程序化模型，不会中断其他阶段或造成白屏。
+
+需要验证 fallback 时，请采用可恢复的重命名操作，不要删除模型。例如测试堆填阶段：
+
+```powershell
+Rename-Item -LiteralPath public/assets/models/stack.glb -NewName stack.glb.disabled
+```
+
+刷新页面并选择“磷石膏堆填”，确认程序化堆场仍能显示。测试结束后立即恢复原文件名：
+
+```powershell
+Rename-Item -LiteralPath public/assets/models/stack.glb.disabled -NewName stack.glb
 ```
 
