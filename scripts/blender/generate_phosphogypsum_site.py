@@ -10,6 +10,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+from export_glb import export_stage
 from terrain_generator import STAGE_IDS, create_site_terrain
 
 
@@ -36,12 +37,7 @@ def main():
     stages = STAGE_IDS if args.stage == 'all' else (args.stage,)
     for stage_id in stages:
         collection = create_site_terrain(stage_id, seed=args.seed)
-        triangle_count = sum(
-            len(obj.data.loop_triangles)
-            for obj in collection.objects
-            if obj.type == 'MESH' and (obj.data.calc_loop_triangles() is None)
-        )
-        print(f'Generated {stage_id}: {len(collection.objects)} objects, {triangle_count} triangles')
+        export_stage(collection, stage_id, args.output)
 
 
 if __name__ == '__main__':

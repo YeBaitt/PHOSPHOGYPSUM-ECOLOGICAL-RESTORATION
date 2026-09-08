@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createEngineeringDetails } from './createEngineeringDetails.js';
 import { createStageModelLoader } from './createStageModelLoader.js';
 import { getStageConfig } from './stageConfig.js';
@@ -16,9 +15,15 @@ export function createSiteModel(renderer, options = {}) {
   proceduralRoot.name = 'procedural-site-fallback';
   proceduralRoot.add(terrain.mesh, engineering.root, vegetation.root);
 
-  const gltfLoader = options.loadStageGlb ? null : new GLTFLoader();
+  let gltfLoaderPromise;
+  const defaultLoadStageGlb = async (url) => {
+    gltfLoaderPromise ??= import('three/addons/loaders/GLTFLoader.js')
+      .then(({ GLTFLoader }) => new GLTFLoader());
+    const gltfLoader = await gltfLoaderPromise;
+    return gltfLoader.loadAsync(url);
+  };
   const loadStageGlb = options.loadStageGlb
-    ?? (url => gltfLoader.loadAsync(url));
+    ?? defaultLoadStageGlb;
   const repository = createStageAssetRepository({
     load: loadStageGlb,
     warn: options.warn,
