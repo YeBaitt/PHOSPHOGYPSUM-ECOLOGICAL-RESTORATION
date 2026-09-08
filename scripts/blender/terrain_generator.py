@@ -5,6 +5,10 @@ import random
 
 import bpy
 
+from drainage import create_cover_cap, create_drainage, create_restoration_plants
+from materials import assign_material, create_stage_materials
+from roads import create_compaction_details, create_haul_roads
+
 
 STAGE_IDS = ('pit', 'liner', 'stack', 'cover', 'restoration')
 ANGULAR_SEGMENTS = 192
@@ -125,6 +129,40 @@ def _create_pit_body(collection, seed, stage_id):
           floor_ring, collection, location_z=-4.10)
 
 
+def _normalized_distance(x, y):
+    return math.hypot(x / BASE_RADIUS_X, y / BASE_RADIUS_Y)
+
+
+def _stack_height(x, y, lift=0.0):
+    distance = _normalized_distance(x, y)
+    if distance <= 0.37:
+        return 8.40 + lift
+    if distance <= 0.47:
+        return 8.40 - (distance - 0.37) / 0.10 * 2.00 + lift
+    if distance <= 0.53:
+        return 6.40 + lift
+    if distance <= 0.64:
+        return 6.40 - (distance - 0.53) / 0.11 * 2.10 + lift
+    if distance <= 0.70:
+        return 4.30 + lift
+    if distance <= 0.82:
+        return 4.30 - (distance - 0.70) / 0.12 * 2.10 + lift
+    if distance <= 0.88:
+        return 2.20 + lift
+    if distance <= 1.0:
+        return 2.20 - (distance - 0.88) / 0.12 * 2.00 + lift
+    return 0.20 * max(0.0, 1.15 - distance) / 0.15
+
+
+def _pit_height(x, y):
+    distance = _normalized_distance(x, y)
+    if distance <= 0.55:
+        return -4.10
+    if distance <= 0.90:
+        return -4.10 + (distance - 0.55) / 0.35 * 4.20
+    return 0.10
+
+
 def create_site_terrain(stage_id, seed=7639):
     """Create and return one stage collection in the active Blender scene."""
     if stage_id not in STAGE_IDS:
@@ -132,7 +170,22 @@ def create_site_terrain(stage_id, seed=7639):
     collection = _collection_for_stage(stage_id)
     if stage_id in ('pit', 'liner'):
         _create_pit_body(collection, seed, stage_id)
+        height_sampler = _pit_height
     else:
         _create_stack_body(collection, seed, stage_id)
-    return collection
+        lift = {'stack': 0.0, 'cover': 0.18, 'restoration': 0.28}[stage_id]
+        height_sampler = lambda x, y: _stack_height(x, y, lift)
 
+    materials = create_stage_materials(stage_id)
+    for obj in collection.objects:
+        if hasattr(obj.data, 'materials'):
+            assign_material(obj, materials['body'])
+
+    create_haul_roads(stage_id, height_sampler, collection, materials)
+    create_compaction_details(stage_id, height_sampler, collection, materials)
+    create_drainage(stage_id, height_sampler, collection, materials)
+    if stage_id == 'cover':
+        create_cover_cap(height_sampler, collection, materials)
+    elif stage_id == 'restoration':
+        create_restoration_plants(height_sampler, collection, materials, seed)
+    return collection

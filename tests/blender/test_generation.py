@@ -59,6 +59,32 @@ class TerrainGenerationTest(unittest.TestCase):
         self.assertGreater(floor.dimensions.x, 42.0)
         self.assertGreater(floor.dimensions.y, 30.0)
 
+    def test_stage_details_are_distinct(self):
+        expectations = {
+            'pit': {'PitAccessRoad', 'ToeDrain'},
+            'liner': {'Geomembrane', 'LinerSeams', 'DrainagePipe'},
+            'stack': {'HaulRoad', 'BenchRoad', 'CompactionBands'},
+            'cover': {'CoverSoil', 'CoverTracks'},
+            'restoration': {'VegetationPatches', 'Shrubs', 'YoungTrees'},
+        }
+        for stage, required in expectations.items():
+            clear_scene()
+            collection = create_site_terrain(stage, seed=7639)
+            self.assertTrue(
+                required <= {obj.name for obj in collection.objects},
+                f'{stage} is missing {required - {obj.name for obj in collection.objects}}',
+            )
+
+    def test_stack_material_is_gray_white_and_rough(self):
+        collection = create_site_terrain('stack', seed=7639)
+        material = collection.objects['StackTop'].data.materials[0]
+        principled = material.node_tree.nodes.get('Principled BSDF')
+        color = principled.inputs['Base Color'].default_value
+
+        self.assertGreater(min(color[:3]), 0.56)
+        self.assertLess(max(color[:3]) - min(color[:3]), 0.12)
+        self.assertGreater(principled.inputs['Roughness'].default_value, 0.75)
+
 
 if __name__ == '__main__':
     result = unittest.main(argv=[sys.argv[0]], exit=False)
