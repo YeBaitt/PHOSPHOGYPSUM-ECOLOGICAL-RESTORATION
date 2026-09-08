@@ -19,6 +19,7 @@ function forEachMaterial(scene, callback) {
 
 function normalizeScene(scene, stageId) {
   scene.name = `stage-glb-${stageId}`;
+  scene.scale.setScalar(0.185);
   scene.traverse((object) => {
     if (!object.isMesh) return;
     object.castShadow = true;

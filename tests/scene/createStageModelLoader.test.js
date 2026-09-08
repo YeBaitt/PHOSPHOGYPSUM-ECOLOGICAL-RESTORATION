@@ -27,7 +27,11 @@ describe('stage model loader', () => {
     await flushPromises();
 
     expect(fallback.visible).toBe(true);
-    expect(loader.root.getObjectByName('stage-glb-stack')).toBeTruthy();
+    const loaded = loader.root.getObjectByName('stage-glb-stack');
+    expect(loaded).toBeTruthy();
+    expect(loaded.scale.x).toBeCloseTo(0.185, 3);
+    expect(loaded.scale.y).toBeCloseTo(0.185, 3);
+    expect(loaded.scale.z).toBeCloseTo(0.185, 3);
     loader.update(0.25);
     expect(fallback.visible).toBe(false);
   });
