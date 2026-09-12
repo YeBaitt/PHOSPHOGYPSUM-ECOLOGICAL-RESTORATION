@@ -14,6 +14,14 @@ function rendererStub() {
   return { capabilities: { getMaxAnisotropy: () => 4 } };
 }
 
+function proceduralOnlyOptions() {
+  return {
+    loadImages: false,
+    preloadStageModels: false,
+    loadStageGlb: () => new Promise(() => {}),
+  };
+}
+
 describe('stage configuration', () => {
   it('progresses from an exposed pit to restored vegetation', () => {
     expect(getStageConfig('pit')).toMatchObject({
@@ -79,13 +87,14 @@ describe('site model', () => {
     const renderer = {
       capabilities: { getMaxAnisotropy: () => 4 },
     };
-    const model = createSiteModel(renderer, { loadImages: false });
+    const model = createSiteModel(renderer, proceduralOnlyOptions());
 
     expect(model.root.getObjectByName('unified-terrain')).toBeTruthy();
     expect(model.root.getObjectByName('site-ground')).toBeUndefined();
     expect(model.root.getObjectByName('pit-wall')).toBeUndefined();
     expect(
-      model.root.children.filter(child => child.name === 'unified-terrain'),
+      model.root.getObjectByName('procedural-site-fallback').children
+        .filter(child => child.name === 'unified-terrain'),
     ).toHaveLength(1);
     model.dispose();
   });
@@ -100,7 +109,7 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel(rendererStub(), { loadImages: false });
+    const model = createSiteModel(rendererStub(), proceduralOnlyOptions());
     model.applyStage('restoration');
     model.update(0.6);
 
@@ -120,7 +129,7 @@ describe('site model', () => {
       set globalAlpha(value) {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
-    const model = createSiteModel(rendererStub(), { loadImages: false });
+    const model = createSiteModel(rendererStub(), proceduralOnlyOptions());
 
     const expectedDetails = {
       'liner-seams': 'liner-details',
@@ -196,9 +205,12 @@ describe('natural vegetation', () => {
     const forest = vegetation.root.getObjectByName('distant-forest');
 
     expect(trees.isInstancedMesh).toBe(true);
-    expect(forest.isInstancedMesh).toBe(true);
+    expect(forest.isGroup).toBe(true);
+    expect(forest.getObjectByName('forest-trunks').isInstancedMesh).toBe(true);
+    expect(forest.getObjectByName('forest-crowns-lower').isInstancedMesh).toBe(true);
+    expect(forest.getObjectByName('forest-crowns-upper').isInstancedMesh).toBe(true);
     expect(trees.count).toBeGreaterThan(40);
-    expect(forest.count).toBeGreaterThan(300);
+    expect(forest.getObjectByName('forest-trunks').count).toBeGreaterThan(300);
 
     vegetation.applyStage('pit');
     expect(trees.visible).toBe(false);
@@ -209,7 +221,7 @@ describe('natural vegetation', () => {
 
   it('keeps distant forest trees within the landscape scale', () => {
     const vegetation = createVegetation(rendererStub(), { loadImages: false });
-    const forest = vegetation.root.getObjectByName('distant-forest');
+    const forest = vegetation.root.getObjectByName('forest-trunks');
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
     const rotation = new THREE.Quaternion();

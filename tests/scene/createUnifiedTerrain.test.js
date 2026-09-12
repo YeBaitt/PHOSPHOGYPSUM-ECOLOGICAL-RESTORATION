@@ -75,4 +75,21 @@ describe('unified terrain', () => {
     expect(terrain.mesh.material.uniforms.fogFar).toBeTruthy();
     terrain.dispose();
   });
+
+  it('cuts out only the central procedural surface for a loaded stage model', () => {
+    const terrain = createUnifiedTerrain(rendererStub(), {
+      segmentsX: 16,
+      segmentsZ: 12,
+      loadImages: false,
+    });
+
+    terrain.setStageModelActive(true);
+
+    expect(terrain.mesh.visible).toBe(true);
+    expect(terrain.mesh.material.uniforms.uStageModelCutout.value).toBe(1);
+    expect(terrain.mesh.material.fragmentShader).toContain('vec2(16.4, 13.4)');
+    terrain.setStageModelActive(false);
+    expect(terrain.mesh.material.uniforms.uStageModelCutout.value).toBe(0);
+    terrain.dispose();
+  });
 });

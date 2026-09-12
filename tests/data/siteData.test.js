@@ -48,6 +48,14 @@ describe('site data', () => {
     expect(getStageData('sanbanhu', 'restoration').groups).toEqual([]);
   });
 
+  it('describes the liner stage without an unexplained drainage structure', () => {
+    SITE_IDS.forEach((siteId) => {
+      const description = getStageData(siteId, 'liner').description;
+      expect(description).toContain('连续防渗层');
+      expect(description).not.toContain('排水结构');
+    });
+  });
+
   it('rejects unknown identifiers', () => {
     expect(() => getSite('other')).toThrow('Unknown site: other');
     expect(() => getStageData('sanbanhu', 'other')).toThrow('Unknown stage: other');
